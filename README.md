@@ -4,4 +4,4 @@ This is not a rewrite, just a simple updated version as there was no 64bit versi
 
 Compiled with AutoIT using a newer versionthan the original: v3.3.16.1 via ISN AutoIT Studio.
 
-![jpg Synth1](graphics/x-splash.jpg)
+![jpg X-Splash](graphics/x-splash.jpg)
