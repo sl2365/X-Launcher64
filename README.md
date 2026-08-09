@@ -1,10 +1,10 @@
 # X-Launcher 64
 
-This is not a rewrite, just a simple updated version as there was no 64bit version of the app. I made a small edit to the splash screen to denote the change.
+Updated version of the portable launcher. Want to make your apps portable? Use X-Launchers easy to use yet advanced capabilities!
+
+For a quicker response to issues, please post bug reports and FR's on the [PortableFreeware](https://www.portablefreeware.com/forums/viewtopic.php?t=26375) forum.
 
 Compiled with AutoIT v3.3.18.0
-
-For a quicker response, please post bug reports and FR's on the [PortableFreeware](https://www.portablefreeware.com/forums/viewtopic.php?t=26375) forum.
 
 ![jpg X-Splash](graphics/x-splash.jpg)
 
@@ -56,7 +56,7 @@ Important:
 - Aut2Exe performs compilation.
 - AutoIt3Wrapper is retained only as a command-line build utility because the current x-compiler.au3 uses AutoIt3Wrapper directives for resource metadata, automatic FileVersion incrementing, DPI/manifest settings, etc.
 
-ISN Studio and SciTE/AutoIt editor are not required by BUILD_TEST.bat.
+ISN Studio and SciTE/AutoIt editor are not required to build X-Launcher64 v2. Just run the BUILD_TEST.bat file, making sure you've set up the locations as above.
 
 ---
 
@@ -64,37 +64,13 @@ ISN Studio and SciTE/AutoIt editor are not required by BUILD_TEST.bat.
 ### New Reg Setting:
 Existing configurations continue using the launcher's native registry view unless RegView is specified. New configurations use `RegView=Auto`, which automatically selects the registry view from the launched application's architecture. Existing portable applications that use registry redirection and were previously run with a 32-bit X-Launcher may need RegView=32 added once.
 
-<table>
-  <tr>
-    <th>Setting</th>
-    <th>Result</th>
-  </tr>
-  <tr>
-    <td>None</td>
-    <td>Native</td>
-  </tr>
-  <tr>
-    <td>RegView=32</td>
-    <td>Force 32-bit</td>
-  </tr>
-  <tr>
-    <td>RegView=64</td>
-    <td>Force 64-bit</td>
-  </tr>
-  <tr>
-    <td>RegView=Native</td>
-    <td>Force launcher-native view</td>
-  </tr>
-  <tr>
-    <td>RegView=Auto</td>
-    <td>
-      Detect target EXE bitness each launch<br>
-      32-bit EXE -> 32-bit view<br>
-      64-bit EXE -> 64-bit view<br>
-      Undetectable/non-EXE -> Native
-    </td>
-  </tr>
-</table>
+| Setting | Result |
+|---|---|
+| None  |-> Native|
+| RegView=32          |-> force 32-bit|
+| RegView=64          |-> force 64-bit|
+| RegView=Native      |-> force launcher-native view|
+| RegView=Auto        |-> Auto detect target EXE bitness each launch:<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;32-bit EXE -> 32-bit view<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;64-bit EXE -> 64-bit view<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Undetectable/non-EXE -> Native|
 
 ### New JavaURL Setting:
 This is for specifying the URL to download and thus allows X-Launcher to install Java into it's folder for use by the specified app. This is a user setting rather than using the hardcoded default laid out in the original. This allows it to be updated should the Java site change or move location.
