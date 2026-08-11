@@ -1,5 +1,8 @@
 # X-Launcher 64
 
+[![Release](https://img.shields.io/github/v/release/sl2365/X-Launcher64?style=for-the-badge-square&color=olive)](https://github.com/sl2365/X-Launcher64/releases/latest/download/X-Launcher64.zip)
+[![Release Date](https://img.shields.io/github/release-date/sl2365/X-Launcher64?style=for-the-badge-square&color=yellow)](https://github.com/sl2365/X-Launcher64/releases)
+
 Updated version of the portable launcher. Want to make your apps portable? Use X-Launchers easy to use yet advanced capabilities!
 
 For a quicker response to issues, please post bug reports and FR's on the [PortableFreeware](https://www.portablefreeware.com/forums/viewtopic.php?t=26375) forum.
