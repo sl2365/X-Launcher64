@@ -179,6 +179,8 @@ Reports, `.log`, `.dbg`, and `.pml` files can contain usernames, paths, command 
 
 ---
 
+## Testing
+
 | Component | Intended user | Purpose |
 |---|---|---|
 | Test_Suite	| Developer/maintainer	| Proves the audit repairs haven’t broken anything. Its 55 tests validate X-Launcher code.|
