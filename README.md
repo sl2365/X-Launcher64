@@ -9,8 +9,7 @@ Compiled with AutoIT v3.3.18.0
 ![jpg X-Splash](graphics/x-splash.jpg)
 
 ### NOTE:
-AutoIT v3.3.18.0 has discontinued support for older Windows versions: XP and Vista.
-AutoIT v3.3.18.0 only supports Windows 7 and later.
+AutoIT v3.3.18.0 has discontinued support for older Windows versions: XP and Vista, only supports Windows 7 and later.
 See the [AutoIT changelog](https://www.autoitscript.com/autoit3/docs/history.htm) for more info. 
 
 X-Launcher v1.5.7.20 still supports those versions.
@@ -101,7 +100,7 @@ Examples:
 
 ```ini
 Java=true
-JavaPath=D:\SyMenu\ProgramFiles\PA.c\PortableApps\CommonFiles\Java64
+JavaPath=D:\PortableApps\CommonFiles\Java64
 ```
 
 ```ini
@@ -181,6 +180,27 @@ Reports, `.log`, `.dbg`, and `.pml` files can contain usernames, paths, command 
 
 ## Testing
 
+The available user-facing modes are:
+
+- TestRun=Probe
+  - Examines that application’s real INI.
+  - Checks sections, settings, paths, operations, Java configuration and safety problems.
+  - Does not launch the application or perform its operations.
+  - This answers: “Is my INI configured sensibly?”
+- TestRun=Trace
+  - Runs the real application using its real INI.
+  - Records what X-Launcher did, whether operations succeeded, process results and cleanup.
+  - Optionally uses Process Monitor for wider application activity.
+  - This answers: “Did my INI and X-Launcher work during a real launch?”
+- TestRun=Full
+  - Tests X-Launcher’s own internal functions in an isolated workspace.
+  - Ignores the configured application and its operations.
+  - This answers: “Is this compiled X-Launcher functioning correctly?”
+- TestRun=false
+  - Normal application launch.
+  - Users restore this after testing.
+
+Debug=true additionally produces detailed .dbg and .log files during normal launches.
 | Component | Intended user | Purpose |
 |---|---|---|
 | Test_Suite	| Developer/maintainer	| Proves the audit repairs haven’t broken anything. Its 55 tests validate X-Launcher code.|
