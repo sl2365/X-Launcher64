@@ -69,7 +69,7 @@ Important:
 ISN Studio and the SciTE/AutoIt editor are not required to build X-Launcher64 v2.
 
 - Double-click `BUILD.bat` for AU3Check and compilation only. The compiled launcher remains as `X-Launcher_x64.exe` in the project root.
-- Double-click `BUILD_TEST.bat` for AU3Check, compilation, and all 55 permanent regression tests. This build moves the compiled launcher to `Test_Suite\X-Launcher_x64.exe` and writes `Test_Suite\Results.log`.
+- Double-click `BUILD_TEST.bat` for AU3Check, compilation, and all 62 permanent regression tests. This build moves the compiled launcher to `Test_Suite\X-Launcher_x64.exe` and writes `Test_Suite\Results.log`.
 - Double-click `Test_Suite\RUN_TEST.bat` to rerun the permanent suite against the test launcher already present.
 
 ---
@@ -77,6 +77,37 @@ ISN Studio and the SciTE/AutoIt editor are not required to build X-Launcher64 v2
 # Configuration compatibility
 
 All added settings are optional. Existing INI files remain valid and keep their previous behavior when the new keys are absent.
+
+## Portable application-data and temporary folders
+
+The `[Environment]` section sets process environment variables for X-Launcher, the application it starts, and child processes. Each entry is a variable name and value. X-Launcher path variables such as `$Lib$` can be used in the value.
+
+For the common Windows folders, two optional `[Options]` settings provide simpler defaults:
+
+| Setting | Environment produced before launch |
+|---|---|
+| `FixLocalAppData=true` | Creates `$Lib$\AppData\Local` and sets `LOCALAPPDATA` to it. |
+| `FixTemp=true` | Creates `$Lib$\AppData\Local\Temp` and sets both `TEMP` and `TMP` to it. |
+
+Both settings default to `false`, are independent, and do not require a separate `FixTmp` option. If the same variable is explicitly present in `[Environment]`, that explicit value is processed afterwards and takes priority.
+
+The older `FixAppData` option is separate: it belongs to the existing `USERPROFILE` handling and does not replace these `LOCALAPPDATA`, `TEMP`, or `TMP` settings. It can safely be combined with both new options; X-Launcher captures the Windows shell-folder names before applying the portable environment. Unsafe child-folder names, including names containing control characters, are rejected before a directory can be renamed or created.
+
+`FixTemp` does not delete the portable folder. It is unrelated to `[FileSystem] Temp` and `DeleteTemp`, which control X-Launcher’s own working temp. To remove the application’s portable temp after it closes, use the existing internal cleanup operation, for example:
+
+```ini
+[RunAfter]
+DirRemove=$Lib$\AppData\Local\Temp
+```
+
+The equivalent advanced configuration remains valid:
+
+```ini
+[Environment]
+LOCALAPPDATA=$Lib$\AppData\Local
+TEMP=$Lib$\AppData\Local\Temp
+TMP=$Lib$\AppData\Local\Temp
+```
 
 ## Registry view
 
@@ -148,16 +179,70 @@ Trace is not read-only. It launches the actual configured application and runs t
 ```text
 Diagnostics\<AppName>\<timestamp_millisecond_pid>\
     Application_Trace_Summary.txt
+    Application_Portability_Report.txt
     X-Launcher_Settings.log
     X-Launcher_Debug.dbg
     Application_Trace.pml       (only when native capture is saved)
 ```
 
+With a saved native Process Monitor capture, `Application_Portability_Report.txt`
+is the single readable review file. It attributes successful write-like file,
+directory, and registry events to the application or X-Launcher process trees,
+collapses repeated low-level events by target, and separates application targets
+into `CONTAINED`, `MANAGED`, and `UNMANAGED` groups. `MANAGED` means the target
+matches a resolved path or portable REG root in the current INI. `UNMANAGED`
+means it is outside `Root` with no such current rule and should be reviewed; it
+is not automatic proof of a portability defect. The report also includes relevant
+failed write attempts, process/command-line evidence, after-exit file presence,
+limitations, and privacy guidance.
+
+If native capture or XML export is unavailable, X-Launcher still creates the
+portability report with a clear `NOT AVAILABLE` reason. The native PML remains
+the detailed source evidence. ProcMon XML's fixed process list is used to map
+event `ProcessIndex` values to PID, parent PID, process name and command line,
+independent of visible columns. If the optional Detail field is not exported,
+ambiguous `CreateFile` events are excluded so ordinary reads are not reported as
+writes. Intermediate XML and canonical CSV files are removed after successful
+analysis and retained only when their stage fails for troubleshooting.
+
 `ProcMonPath` may contain the Process Monitor executable or its folder. Absolute paths and paths relative to `Root` are accepted. If blank, X-Launcher tries `$Lib$\Tools\ProcessMonitor\Procmon64.exe`. Supported executable names are `Procmon64.exe`, `Procmon.exe`, and `Procmon64a.exe`, selected for the operating-system architecture.
 
-X-Launcher does not download Process Monitor, silently accept its licence, or take over an existing Process Monitor session. Starting native capture can display UAC and first-run licence prompts. If Process Monitor is unavailable, Trace offers an X-Launcher-only report or cancellation.
+X-Launcher does not download Process Monitor, silently accept its licence, or take over an existing Process Monitor session. Starting, stopping, and exporting native capture can display UAC prompts, and Process Monitor can show its first-run licence prompt. If Process Monitor is unavailable, Trace offers an X-Launcher-only report or cancellation.
+
+Trace automatically creates a temporary write-focused Process Monitor configuration for each session. It captures Process Monitor's `Write`, `Write Metadata`, and `Process` categories, then the report attributes the application and X-Launcher process trees and compares their targets with the portable Root and current INI. Keeping all capture inclusions on the same ProcMon field also retains writes made by application children located outside Root. Process Monitor's `Drop Filtered Events` option is enabled so unrelated reads and general system noise do not fill the PML. Duplicate low-value timestamp, allocation, flush, security metadata and Windows BAM bookkeeping events are dropped while create, content-write, rename, delete and registry data operations remain available. Users do not need to create ProcMon filters or add another INI setting. The temporary configuration is removed after successful analysis and retained with the XML/CSV only when a stage fails.
+
+After the application closes, a tray notification identifies the current finishing phase: Process Monitor export, event conversion, or target/INI classification. The debug and settings logs record the duration of each phase. During conversion, fixed XML fields use direct extraction and non-reportable Process/metadata events are rejected before their remaining fields are decoded. Canonical CSV rows use a fast parser, the initial process-relation block is read without a redundant full-file scan, and repeated targets are collapsed through an indexed lookup.
+
+`DirRemove` cleanup is idempotent. If its resolved target is already absent, ordinary and empty-only (`|e`) removal return success and diagnostics state that the requested cleanup was already complete. Invalid paths, non-directory targets and genuine removal failures remain failures.
+
+Process Monitor is executed for three different jobs: start capture, stop capture, and reopen the saved PML for XML export. These are not three separate captures. Windows can request elevation for each control execution.
 
 The optional PML safeguards default to `ProcMonMaxMB=512` and `ProcMonReserveMB=1024`. Accepted values are 64-102400 MB and 256-102400 MB respectively. Capture is stopped and preserved as partial evidence if a limit is reached.
+
+### The basic process is:
+
+1. Create a minimal INI that can launch the application.
+2. Set TestRun=Trace and configure ProcMonPath.
+3. Launch the application through X-Launcher.
+4. Use the application normally:
+   - Change settings
+   - Open its main features
+   - Install plugins if relevant
+   - Then close it normally
+5. X-Launcher saves:
+   - Application_Trace_Summary.txt
+   - Application_Portability_Report.txt
+   - Application_Trace.pml
+6. Open `Application_Portability_Report.txt` and review the `UNMANAGED` application file, folder and registry targets. Use the PML in Process Monitor only when the detailed source events need closer inspection.
+7. Add the appropriate environment settings, file operations and registry handling to the application’s X-Launcher INI.
+8. Run Trace again to check whether those changes are now being handled.
+9. Repeat until no unacceptable residue remains.
+
+The distinction is:
+
+The text summary explains what X-Launcher did.
+The portability report gives a readable classification of captured application and X-Launcher write targets.
+The PML contains the detailed source application activity for closer inspection when required.
 
 ## Full Test
 
@@ -178,7 +263,7 @@ Diagnostic results use `PASS`, `FAIL`, `WARN`, `SKIP`, and `NOT USED` classifica
 
 ## Limits and privacy
 
-X-Launcher-only Trace evidence can report launcher operations and launch/process results, but it cannot observe all activity performed later by an application. Even a native Process Monitor capture cannot automatically decide whether every change is residue or intended behavior. Attribution can be incomplete for services, brokers, elevated processes, and short-lived child processes. Writes outside `Root` are warnings for review, not automatic proof of failure.
+X-Launcher-only Trace evidence can report launcher operations and launch/process results, but it cannot observe all activity performed later by an application. Even a native Process Monitor capture cannot automatically decide whether every change is persistent user data or intended behavior. Registry presence is not inferred beyond the last captured action. Attribution can be incomplete for services, brokers, elevated processes, and short-lived child processes. Writes outside `Root` are warnings for review, not automatic proof of failure.
 
 Reports, `.log`, `.dbg`, and `.pml` files can contain usernames, paths, command lines, document names, registry data, and other private information. Review them before sharing and delete diagnostic output when it is no longer needed.
 
@@ -196,7 +281,7 @@ The available user-facing modes are:
 - TestRun=Trace
   - Runs the real application using its real INI.
   - Records what X-Launcher did, whether operations succeeded, process results and cleanup.
-  - Optionally uses Process Monitor for wider application activity.
+  - Optionally uses Process Monitor to create a readable portability report of wider application activity.
   - This answers: “Did my INI and X-Launcher work during a real launch?”
 - TestRun=Full
   - Tests X-Launcher’s own internal functions in an isolated workspace.
@@ -207,16 +292,13 @@ The available user-facing modes are:
   - Users restore this after testing.
 
 Debug=true additionally produces detailed .dbg and .log files during normal launches.
+
 | Component | Intended user | Purpose |
 |---|---|---|
-| Test_Suite	| Developer/maintainer	| Proves the audit repairs haven’t broken anything. Its 55 tests validate X-Launcher code.|
-| Debug_Feature_Test_Kit	| Developer/maintainer	| Proves the newly built diagnostic features themselves work correctly. It is not for testing normal applications.|
-| Built-in TestRun modes	| Ordinary X-Launcher user	| Tests X-Launcher itself or a user’s real application INI.|
+| Test_Suite | Developer/maintainer | Proves the audit repairs haven’t broken anything. Its 56 tests validate X-Launcher code. |
+| Debug_Feature_Test_Kit | Developer/maintainer | Proves the newly built diagnostic features themselves work correctly. It is not for testing normal applications. |
+| Built-in TestRun modes | Ordinary X-Launcher user | Tests X-Launcher itself or a user’s real application INI. |
 
 # Remaining ideas
 
-- `FixProgramData=true/false`
-- `FixProgramFiles32=true/false`
-- `FixProgramFiles64=true/false`
-- `FixUserDocs=true/false`
-- `FixPublicDocs=true/false`
+- SymbolicLinks/Junctions

@@ -123,14 +123,18 @@ Endfunc
 ;
 ;===============================================================================
 Func _FileReadAtOffsetHEX ($sFile, $nOffset, $nBytes)
-    Local $hFile = FileOpen($sFile, 0)
-    Local $sTempStr = ""
-    FileRead($hFile, $nOffset - 1)
-    For $i = $nOffset To $nOffset + $nBytes - 1
-        $sTempStr = $sTempStr & Hex(Asc(FileRead($hFile, 1)), 2)
-    Next
-    FileClose($hFile)
-    Return ($sTempStr)
+	Local $hFile = FileOpen($sFile, 16)
+	If $hFile = -1 Then Return SetError(1, 0, '')
+	If Not FileSetPos($hFile, $nOffset - 1, 0) Then
+		FileClose($hFile)
+		Return SetError(2, 0, '')
+	EndIf
+
+	Local $bData = FileRead($hFile, $nBytes)
+	Local $iReadError = @error
+	FileClose($hFile)
+	If $iReadError Or BinaryLen($bData) <> $nBytes Then Return SetError(3, 0, '')
+	Return Hex($bData)
 Endfunc
 
 ;===============================================================================
