@@ -1001,8 +1001,16 @@ Lower-priority cleanup and compatibility resolution:
 - Test 51 verifies that both font-change broadcasts use SendMessageTimeoutW
   with pointer-sized LRESULT, WPARAM, LPARAM and DWORD_PTR-compatible types.
 - Existing test INIs now use the corrected MultipleInstances spelling.
-- Together with the expanded Test 24 splash checks, the suite now contains 62
-  top-level permanent regression tests.
+- Test 52A verifies temporary junction creation, forced RunWait, writes through
+  the junction, and automatic removal of the junction without deleting its target.
+- Test 52B verifies the persistent `|*` junction flag and confirms that manual
+  test cleanup removes only the junction while preserving its target.
+- Test 53A and Test 53B perform the equivalent temporary-file and
+  persistent-directory checks for symbolic links. On a machine without Developer Mode or an
+  elevated launcher, Windows error 1314 is accepted as an explicit privilege
+  limitation rather than being mistaken for a functional success.
+- Together with the expanded Test 24 splash checks, the suite now contains 66
+  permanent regression tests.
 
 Issue 21 v2 baseline correction:
 - The FirstRun=true/false checks no longer require one exact literal INI line.

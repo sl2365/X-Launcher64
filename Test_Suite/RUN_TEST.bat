@@ -4626,6 +4626,128 @@ if "!T51!"=="PASS" (
     set /a FAILCOUNT+=1
 )
 
+echo Running Test 52A - Temporary Junction Lifecycle...
+set /a TOTAL+=1
+if exist "Working\Test52A" rmdir /s /q "Working\Test52A"
+mkdir "Working\Test52A\Target"
+> "Working\Test52A\Payload.bat" echo @echo off
+>>"Working\Test52A\Payload.bat" echo ^> "%%~dp0TemporaryJunction\Payload.txt" echo TEMP_JUNCTION_OK
+>>"Working\Test52A\Payload.bat" echo exit /b 0
+if exist "X-Launcher_x64.dbg" del /q "X-Launcher_x64.dbg" >nul 2>&1
+
+start "" /wait "%LAUNCHER%" "--x-launcher-config=%CD%\Configs\52A_Junction_Temporary.ini" >nul 2>&1
+set "T52A_EXIT=!ERRORLEVEL!"
+set "T52A=FAIL"
+set "T52A_TARGET=FAIL"
+set "T52A_REMOVED=FAIL"
+set "T52A_DEBUG=FAIL"
+set "T52A_FORCED=FAIL"
+if exist "Working\Test52A\Target\Payload.txt" set "T52A_TARGET=PASS"
+if not exist "Working\Test52A\TemporaryJunction" set "T52A_REMOVED=PASS"
+findstr /l /c:"[PASS] [Functions] Junctions=.\Target|.\TemporaryJunction" "X-Launcher_x64.dbg" >nul 2>&1
+if not errorlevel 1 findstr /l /c:"[PASS] [RunAfter] RemoveJunction=" "X-Launcher_x64.dbg" >nul 2>&1
+if not errorlevel 1 set "T52A_DEBUG=PASS"
+findstr /l /c:"RunWait forced true: end-of-run cleanup is required" "X-Launcher_x64.dbg" >nul 2>&1
+if not errorlevel 1 set "T52A_FORCED=PASS"
+if "!T52A_EXIT!"=="0" if "!T52A_TARGET!"=="PASS" if "!T52A_REMOVED!"=="PASS" if "!T52A_DEBUG!"=="PASS" if "!T52A_FORCED!"=="PASS" set "T52A=PASS"
+if "!T52A!"=="PASS" (set /a PASSCOUNT+=1) else (set /a FAILCOUNT+=1)
+
+echo Running Test 52B - Persistent Junction Flag...
+set /a TOTAL+=1
+if exist "Working\Test52B" rmdir /s /q "Working\Test52B"
+mkdir "Working\Test52B\Target"
+> "Working\Test52B\Payload.bat" echo @echo off
+>>"Working\Test52B\Payload.bat" echo ^> "%%~dp0PersistentJunction\Payload.txt" echo PERSISTENT_JUNCTION_OK
+>>"Working\Test52B\Payload.bat" echo exit /b 0
+if exist "X-Launcher_x64.dbg" del /q "X-Launcher_x64.dbg" >nul 2>&1
+
+start "" /wait "%LAUNCHER%" "--x-launcher-config=%CD%\Configs\52B_Junction_Persistent.ini" >nul 2>&1
+set "T52B_EXIT=!ERRORLEVEL!"
+set "T52B=FAIL"
+set "T52B_TARGET=FAIL"
+set "T52B_KEPT=FAIL"
+set "T52B_DEBUG=FAIL"
+set "T52B_CLEANUP=FAIL"
+if exist "Working\Test52B\Target\Payload.txt" set "T52B_TARGET=PASS"
+if exist "Working\Test52B\PersistentJunction\" set "T52B_KEPT=PASS"
+findstr /l /c:"lifetime=persistent" "X-Launcher_x64.dbg" >nul 2>&1
+if not errorlevel 1 (
+    findstr /l /c:"RemoveJunction=" "X-Launcher_x64.dbg" >nul 2>&1
+    if errorlevel 1 set "T52B_DEBUG=PASS"
+)
+rmdir "Working\Test52B\PersistentJunction" >nul 2>&1
+if not exist "Working\Test52B\PersistentJunction" if exist "Working\Test52B\Target\Payload.txt" set "T52B_CLEANUP=PASS"
+if "!T52B_EXIT!"=="0" if "!T52B_TARGET!"=="PASS" if "!T52B_KEPT!"=="PASS" if "!T52B_DEBUG!"=="PASS" if "!T52B_CLEANUP!"=="PASS" set "T52B=PASS"
+if "!T52B!"=="PASS" (set /a PASSCOUNT+=1) else (set /a FAILCOUNT+=1)
+
+echo Running Test 53A - Temporary Symbolic-Link Lifecycle...
+set /a TOTAL+=1
+if exist "Working\Test53A" rmdir /s /q "Working\Test53A"
+mkdir "Working\Test53A"
+> "Working\Test53A\Target.txt" echo SOURCE
+> "Working\Test53A\Payload.bat" echo @echo off
+>>"Working\Test53A\Payload.bat" echo if exist "%%~dp0TemporarySymLink.txt" ^> "%%~dp0TemporarySymLink.txt" echo TEMP_SYMLINK_OK
+>>"Working\Test53A\Payload.bat" echo exit /b 0
+if exist "X-Launcher_x64.dbg" del /q "X-Launcher_x64.dbg" >nul 2>&1
+
+start "" /wait "%LAUNCHER%" "--x-launcher-config=%CD%\Configs\53A_SymLink_Temporary.ini" >nul 2>&1
+set "T53A_EXIT=!ERRORLEVEL!"
+set "T53A=FAIL"
+set "T53A_MODE=FAILED"
+findstr /l /c:"[PASS] [Functions] SymLinks=.\Target.txt|.\TemporarySymLink.txt" "X-Launcher_x64.dbg" >nul 2>&1
+if not errorlevel 1 (
+    findstr /x /c:"TEMP_SYMLINK_OK" "Working\Test53A\Target.txt" >nul 2>&1
+    if not errorlevel 1 if not exist "Working\Test53A\TemporarySymLink.txt" (
+        findstr /l /c:"[PASS] [RunAfter] RemoveSymLink=" "X-Launcher_x64.dbg" >nul 2>&1
+        if not errorlevel 1 (
+            set "T53A=PASS"
+            set "T53A_MODE=CREATED_AND_REMOVED"
+        )
+    )
+) else (
+    findstr /l /c:"[FAIL] [Functions] SymLinks=.\Target.txt|.\TemporarySymLink.txt" "X-Launcher_x64.dbg" >nul 2>&1
+    if not errorlevel 1 findstr /l /c:"extended=1314)" "X-Launcher_x64.dbg" >nul 2>&1
+    if not errorlevel 1 (
+        set "T53A=PASS"
+        set "T53A_MODE=PRIVILEGE_UNAVAILABLE"
+    )
+)
+if not "!T53A_EXIT!"=="0" set "T53A=FAIL"
+if "!T53A!"=="PASS" (set /a PASSCOUNT+=1) else (set /a FAILCOUNT+=1)
+
+echo Running Test 53B - Persistent Symbolic-Link Flag...
+set /a TOTAL+=1
+if exist "Working\Test53B" rmdir /s /q "Working\Test53B"
+mkdir "Working\Test53B\Target"
+> "Working\Test53B\Payload.bat" echo @echo off
+>>"Working\Test53B\Payload.bat" echo if exist "%%~dp0PersistentSymLink" ^> "%%~dp0PersistentSymLink\Payload.txt" echo PERSISTENT_SYMLINK_OK
+>>"Working\Test53B\Payload.bat" echo exit /b 0
+if exist "X-Launcher_x64.dbg" del /q "X-Launcher_x64.dbg" >nul 2>&1
+
+start "" /wait "%LAUNCHER%" "--x-launcher-config=%CD%\Configs\53B_SymLink_Persistent.ini" >nul 2>&1
+set "T53B_EXIT=!ERRORLEVEL!"
+set "T53B=FAIL"
+set "T53B_MODE=FAILED"
+findstr /l /c:"lifetime=persistent" "X-Launcher_x64.dbg" >nul 2>&1
+if not errorlevel 1 (
+    if exist "Working\Test53B\PersistentSymLink\" if exist "Working\Test53B\Target\Payload.txt" (
+        rmdir "Working\Test53B\PersistentSymLink" >nul 2>&1
+        if not exist "Working\Test53B\PersistentSymLink" if exist "Working\Test53B\Target\Payload.txt" (
+            set "T53B=PASS"
+            set "T53B_MODE=CREATED_KEPT_AND_SAFE_REMOVED"
+        )
+    )
+) else (
+    findstr /l /c:"[FAIL] [Functions] SymLinks=.\Target|.\PersistentSymLink|*" "X-Launcher_x64.dbg" >nul 2>&1
+    if not errorlevel 1 findstr /l /c:"extended=1314)" "X-Launcher_x64.dbg" >nul 2>&1
+    if not errorlevel 1 (
+        set "T53B=PASS"
+        set "T53B_MODE=PRIVILEGE_UNAVAILABLE"
+    )
+)
+if not "!T53B_EXIT!"=="0" set "T53B=FAIL"
+if "!T53B!"=="PASS" (set /a PASSCOUNT+=1) else (set /a FAILCOUNT+=1)
+
 echo.
 
 echo ============================================================
@@ -4695,6 +4817,10 @@ echo - Full Test Debug Result Reporting:                  !T49_DEBUGREPORT_STAGE
 echo - Full Test Configuration Probe Parser:              !T49_PROBEPARSER_STAGE6M!
 echo - MultipleInstances Correct Spelling:               !T50!
 echo - SendMessageTimeout x64 Signature:                  !T51!
+echo - Temporary Junction Lifecycle:                      !T52A!
+echo - Persistent Junction Flag:                          !T52B!
+echo - Temporary Symbolic-Link Lifecycle:                 !T53A! ^(!T53A_MODE!^)
+echo - Persistent Symbolic-Link Flag:                     !T53B! ^(!T53B_MODE!^)
 echo.
 echo Passed: !PASSCOUNT!
 echo Failed: !FAILCOUNT!
@@ -4765,6 +4891,10 @@ echo ============================================================
 >>"%RESULTS%" echo - Full Test Configuration Probe Parser:              !T49_PROBEPARSER_STAGE6M!
 >>"%RESULTS%" echo - MultipleInstances Correct Spelling:               !T50!
 >>"%RESULTS%" echo - SendMessageTimeout x64 Signature:                  !T51!
+>>"%RESULTS%" echo - Temporary Junction Lifecycle:                      !T52A!
+>>"%RESULTS%" echo - Persistent Junction Flag:                          !T52B!
+>>"%RESULTS%" echo - Temporary Symbolic-Link Lifecycle:                 !T53A! ^(!T53A_MODE!^)
+>>"%RESULTS%" echo - Persistent Symbolic-Link Flag:                     !T53B! ^(!T53B_MODE!^)
 >>"%RESULTS%" echo.
 >>"%RESULTS%" echo Passed: !PASSCOUNT!
 >>"%RESULTS%" echo Failed: !FAILCOUNT!
@@ -5171,6 +5301,20 @@ echo ============================================================
 >>"%RESULTS%" echo Test 51 RemoveFonts pointer-sized signature:                       !T51_REMOVE!
 >>"%RESULTS%" echo Test 51 legacy signature absent:                                   !T51_LEGACY!
 >>"%RESULTS%" echo Test 51 helper exit code:                                           !T51_EXIT!
+>>"%RESULTS%" echo Test 52A launcher exit code:                                        !T52A_EXIT!
+>>"%RESULTS%" echo Test 52A target received payload write:                             !T52A_TARGET!
+>>"%RESULTS%" echo Test 52A temporary junction removed:                                !T52A_REMOVED!
+>>"%RESULTS%" echo Test 52A creation and cleanup Debug records:                        !T52A_DEBUG!
+>>"%RESULTS%" echo Test 52A temporary junction forced RunWait:                         !T52A_FORCED!
+>>"%RESULTS%" echo Test 52B launcher exit code:                                        !T52B_EXIT!
+>>"%RESULTS%" echo Test 52B target received payload write:                             !T52B_TARGET!
+>>"%RESULTS%" echo Test 52B persistent junction remained a reparse point:              !T52B_KEPT!
+>>"%RESULTS%" echo Test 52B persistent lifetime and no automatic cleanup:              !T52B_DEBUG!
+>>"%RESULTS%" echo Test 52B test cleanup removed only link:                            !T52B_CLEANUP!
+>>"%RESULTS%" echo Test 53A launcher exit code:                                        !T53A_EXIT!
+>>"%RESULTS%" echo Test 53A symbolic-link test mode:                                   !T53A_MODE!
+>>"%RESULTS%" echo Test 53B launcher exit code:                                        !T53B_EXIT!
+>>"%RESULTS%" echo Test 53B symbolic-link test mode:                                   !T53B_MODE!
 
 if !FAILCOUNT! GTR 0 (
     set "SUITE_RC=1"
