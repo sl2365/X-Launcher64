@@ -69,7 +69,7 @@ Important:
 ISN Studio and the SciTE/AutoIt editor are not required to build X-Launcher64 v2.
 
 - Double-click `BUILD.bat` for AU3Check and compilation only. The compiled launcher remains as `X-Launcher_x64.exe` in the project root.
-- Double-click `BUILD_TEST.bat` for AU3Check, compilation, and all 62 permanent regression tests. This build moves the compiled launcher to `Test_Suite\X-Launcher_x64.exe` and writes `Test_Suite\Results.log`.
+- Double-click `BUILD_TEST.bat` for AU3Check, compilation, and all 66 permanent regression tests. This build moves the compiled launcher to `Test_Suite\X-Launcher_x64.exe` and writes `Test_Suite\Results.log`.
 - Double-click `Test_Suite\RUN_TEST.bat` to rerun the permanent suite against the test launcher already present.
 
 ---
@@ -108,6 +108,24 @@ LOCALAPPDATA=$Lib$\AppData\Local
 TEMP=$Lib$\AppData\Local\Temp
 TMP=$Lib$\AppData\Local\Temp
 ```
+
+## Junctions and symbolic links
+
+`[Functions]` can create a directory junction or a file/directory symbolic link before the application starts. The first path is the existing target and the second path is the new link:
+
+```ini
+[Functions]
+Junctions=C:\ExistingData|C:\ProgramData\ExampleData
+SymLinks=$Lib$\Settings|%APPDATA%\ExampleSettings
+```
+
+With two fields, X-Launcher forces `RunWait=true` and removes the link after the application closes. It deletes the link itself only, never the target. Add `|*` to keep a link permanently:
+
+```ini
+Junctions=C:\ExistingData|C:\ProgramData\ExampleData|*
+```
+
+Do not add a trailing pipe when `*` is not used. Existing normal files and directories are never overwritten. An existing link is accepted only when it resolves to the requested source; because X-Launcher did not create that link, it will not remove it. Directory junction targets must be local paths. Symbolic links may require Windows Developer Mode or starting X-Launcher with **Run as administrator**. The launcher itself does not request elevation automatically.
 
 ## Registry view
 
@@ -299,6 +317,19 @@ Debug=true additionally produces detailed .dbg and .log files during normal laun
 | Debug_Feature_Test_Kit | Developer/maintainer | Proves the newly built diagnostic features themselves work correctly. It is not for testing normal applications. |
 | Built-in TestRun modes | Ordinary X-Launcher user | Tests X-Launcher itself or a user’s real application INI. |
 
-# Remaining ideas
+## To Do
+- Probe summary should list only Fail and Warn items at end in the summary.
 
-- SymbolicLinks/Junctions
+- DirRemove should not require |e or |o at the end, it is removing a file/folder there is no overwrite and if |e is used, it will not remove populated fodlers which is required. So why am I getting this: [FAIL] [RunAfter] DirRemove optional flag must contain e: o - What does it mean?Because this is stupid: [FAIL] [RunAfter] DirRemove accepts only a path and optional e flag. - It will then only allow deleting empty folders and is stupid as the original source was not restricted like this. Why have you made it so? It should absolutely NOT be restricted to only being able to delete empty folders!
+
+- This is not a fail: [FAIL] [RunAfter] DirRemove source does not exist: D:\SyMenu\ProgramFiles\MyApps\X-IObit\User\Microsoft - So perhaps add some way to ignore these? I wouldnt consider this essential as this tells users what is happening, so they can see that these aren't really a fail. But if possible, would be nice to be able to hide these.
+
+- This is totally wrong: [WARN] [RunBefore] Unknown operation: DirCopy - because this line is correct but not working: DirCopy=$Lib$\AppData\Roaming|C:\Users\%USERNAME%\AppData\Roaming|o - So something appears to be broken.
+
+- This is also not a fail: [FAIL] [RunAfter] DirRemove has a dangerous target: protected path: D:\SyMenu\ProgramFiles\MyApps\X-IObit\User\ - Whats dangerous about it? Nothing in the path is dangerous it is exactly as it should be. It is not a system path, it is a folder in the programs directory. Is this being set to protected in the source code? So app files dont get deleted accidentally? If so leave that as is. I guess this should be mentioned in the manual as well, not to specify actions directly on the Root folders? Unless there are exceptions I dont know about? But I would expect something like this to remove all empty folders within that location: DirRemove=$Lib$\|e - Or is that not the correct way to do that?
+
+- For some reason, I am getting this error message: [FAIL] [Environment] Invalid variable name: PROGRAMFILES(x86) - This is a real system varaible so why am I getting this now? It was fully supported previously but seems to have been removed for some unknown reason.
+
+- The manual should list in a table all available EnvVars that can be used in the [Environment] section.
+
+- Add Run key so you can run command line or powershell directly in X-Launcher configs.

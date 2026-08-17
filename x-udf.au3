@@ -84,6 +84,245 @@ EndFunc   ;==>_DirCreate
 
 ;===============================================================================
 ;
+; Function Name:    _LinkCreate(), _TemporaryLinksCleanup()
+; Description:      Creates directory junctions or file/directory symbolic links.
+; Syntax:           Junctions=ExistingDirectory|LinkPath|*
+;                   SymLinks=ExistingFileOrDirectory|LinkPath|*
+;                   The optional final * keeps the link after application exit.
+;
+;===============================================================================
+Func _LinkCreate($sValue, $sOperation)
+	If StringRight(StringStripWS($sValue, 3), 1) = '|' Then Return SetError(1, 0, 0)
+	Local $aParts = StringSplit($sValue, '|')
+	If @error Or $aParts[0] < 2 Or $aParts[0] > 3 Then Return SetError(1, 0, 0)
+	If $aParts[1] = '' Or $aParts[2] = '' Then Return SetError(1, 0, 0)
+	If $aParts[0] = 3 And $aParts[3] <> '*' Then Return SetError(2, 0, 0)
+	If $sOperation <> 'Junctions' And $sOperation <> 'SymLinks' Then _
+			Return SetError(3, 0, 0)
+
+	Local $bPersistent = ($aParts[0] = 3 And $aParts[3] = '*')
+	Local $sSource = _FullPath(StringStripWS($aParts[1], 3))
+	Local $sDestination = _FullPath(StringStripWS($aParts[2], 3))
+	If $sSource = '' Or $sDestination = '' Then Return SetError(1, 0, 0)
+	If _LinkCanonicalPath($sSource) = _LinkCanonicalPath($sDestination) Then _
+			Return SetError(4, 0, 0)
+
+	Local $iSourceAttributes = _LinkPathAttributes($sSource)
+	If @error Then Return SetError(5, 0, 0)
+	Local $bDirectory = BitAND($iSourceAttributes, 0x10) <> 0
+	If $sOperation = 'Junctions' And Not $bDirectory Then Return SetError(6, 0, 0)
+	If $sOperation = 'Junctions' And StringLeft($sSource, 2) = '\\' Then _
+			Return SetError(6, 0, 0)
+	Local $iExpectedTag = 0xA000000C
+	If $sOperation = 'Junctions' Then $iExpectedTag = 0xA0000003
+
+	Local $iDestinationAttributes = _LinkPathAttributes($sDestination)
+	Local $iDestinationError = @error
+	If $iDestinationError = 0 Then
+		If BitAND($iDestinationAttributes, 0x400) = 0 Then Return SetError(7, 0, 0)
+		If _LinkReparseTag($sDestination) <> $iExpectedTag Then Return SetError(8, 0, 0)
+		If Not _LinkTargetsMatch($sSource, $sDestination) Then Return SetError(8, 0, 0)
+		; A matching pre-existing link is safe and idempotent, but it is not
+		; tracked because this launcher instance did not create it.
+		Return SetError(0, 3, 1)
+	EndIf
+
+	Local $sParent = _LinkParentPath($sDestination)
+	If $sParent = '' Then Return SetError(9, 0, 0)
+	If Not FileExists($sParent) And DirCreate($sParent) <> 1 Then Return SetError(9, 0, 0)
+
+	Local $bCreated
+	If $sOperation = 'Junctions' Then
+		$bCreated = _JunctionCreate($sSource, $sDestination)
+	Else
+		$bCreated = _SymbolicLinkCreate($sSource, $sDestination, $bDirectory)
+	EndIf
+	Local $iCreateError = @error
+	Local $iCreateExtended = @extended
+	If Not $bCreated Then Return SetError(10 + $iCreateError, $iCreateExtended, 0)
+
+	$iDestinationAttributes = _LinkPathAttributes($sDestination)
+	If @error Or BitAND($iDestinationAttributes, 0x400) = 0 Or _
+			_LinkReparseTag($sDestination) <> $iExpectedTag Or _
+			Not _LinkTargetsMatch($sSource, $sDestination) Then
+		_LinkRemove($sDestination, $bDirectory, $sSource, $iExpectedTag)
+		Return SetError(20, 0, 0)
+	EndIf
+
+	If Not $bPersistent Then _TemporaryLinkTrack($sDestination, $bDirectory, $sOperation, $sSource)
+	If $bPersistent Then Return SetError(0, 2, 1)
+	Return SetError(0, 1, 1)
+EndFunc   ;==>_LinkCreate
+
+Func _LinkPathAttributes($sPath)
+	Local $aResult = DllCall('kernel32.dll', 'dword', 'GetFileAttributesW', 'wstr', $sPath)
+	If @error Or Not IsArray($aResult) Then Return SetError(1, 0, 0)
+	If $aResult[0] = -1 Or $aResult[0] = 0xFFFFFFFF Then Return SetError(1, 0, 0)
+	Return SetError(0, 0, $aResult[0])
+EndFunc   ;==>_LinkPathAttributes
+
+Func _LinkReparseTag($sPath)
+	Local $aHandle = DllCall('kernel32.dll', 'handle', 'CreateFileW', _
+			'wstr', $sPath, 'dword', 0, 'dword', 7, 'ptr', 0, 'dword', 3, _
+			'dword', 0x02200000, 'ptr', 0)
+	If @error Or Not IsArray($aHandle) Or $aHandle[0] = Ptr(-1) Then Return SetError(1, 0, 0)
+	Local $tInformation = DllStructCreate('dword Attributes;dword ReparseTag')
+	Local $aResult = DllCall('kernel32.dll', 'bool', 'GetFileInformationByHandleEx', _
+			'handle', $aHandle[0], 'int', 9, 'ptr', DllStructGetPtr($tInformation), 'dword', 8)
+	Local $iCallError = @error
+	DllCall('kernel32.dll', 'bool', 'CloseHandle', 'handle', $aHandle[0])
+	If $iCallError Or Not IsArray($aResult) Or Not $aResult[0] Then Return SetError(1, 0, 0)
+	Return SetError(0, 0, DllStructGetData($tInformation, 'ReparseTag'))
+EndFunc   ;==>_LinkReparseTag
+
+Func _LinkParentPath($sPath)
+	Local $sParent = _FileInfo($sPath, 0)
+	If StringRegExp($sParent, '^[A-Za-z]:$') Then $sParent &= '\'
+	Return $sParent
+EndFunc   ;==>_LinkParentPath
+
+Func _LinkCanonicalPath($sPath)
+	If $sPath = '' Then Return ''
+	Local $tBuffer = DllStructCreate('wchar[32768]')
+	Local $aResult = DllCall('kernel32.dll', 'dword', 'GetFullPathNameW', _
+			'wstr', StringReplace($sPath, '/', '\'), 'dword', 32768, _
+			'ptr', DllStructGetPtr($tBuffer), 'ptr', 0)
+	If @error Or Not IsArray($aResult) Or $aResult[0] = 0 Or $aResult[0] >= 32768 Then Return ''
+	$sPath = StringReplace(DllStructGetData($tBuffer, 1), '/', '\')
+	If StringLeft($sPath, 8) = '\\?\UNC\' Then
+		$sPath = '\\' & StringTrimLeft($sPath, 8)
+	ElseIf StringLeft($sPath, 4) = '\\?\' Then
+		$sPath = StringTrimLeft($sPath, 4)
+	EndIf
+	While StringLen($sPath) > 3 And StringRight($sPath, 1) = '\'
+		$sPath = StringTrimRight($sPath, 1)
+	WEnd
+	Return StringLower($sPath)
+EndFunc   ;==>_LinkCanonicalPath
+
+Func _LinkResolvedFinalPath($sPath)
+	Local $aHandle = DllCall('kernel32.dll', 'handle', 'CreateFileW', _
+			'wstr', $sPath, 'dword', 0, 'dword', 7, 'ptr', 0, 'dword', 3, _
+			'dword', 0x02000000, 'ptr', 0)
+	If @error Or Not IsArray($aHandle) Or $aHandle[0] = Ptr(-1) Then Return ''
+
+	Local $tBuffer = DllStructCreate('wchar[32768]')
+	Local $aResult = DllCall('kernel32.dll', 'dword', 'GetFinalPathNameByHandleW', _
+			'handle', $aHandle[0], 'ptr', DllStructGetPtr($tBuffer), 'dword', 32768, 'dword', 0)
+	Local $iResultError = @error
+	DllCall('kernel32.dll', 'bool', 'CloseHandle', 'handle', $aHandle[0])
+	If $iResultError Or Not IsArray($aResult) Or $aResult[0] = 0 Or $aResult[0] >= 32768 Then Return ''
+	Return _LinkCanonicalPath(DllStructGetData($tBuffer, 1))
+EndFunc   ;==>_LinkResolvedFinalPath
+
+Func _LinkTargetsMatch($sSource, $sDestination)
+	Local $sSourceFinal = _LinkResolvedFinalPath($sSource)
+	Local $sDestinationFinal = _LinkResolvedFinalPath($sDestination)
+	If $sSourceFinal = '' Or $sDestinationFinal = '' Then Return False
+	Return $sSourceFinal = $sDestinationFinal
+EndFunc   ;==>_LinkTargetsMatch
+
+Func _JunctionCreate($sSource, $sDestination)
+	Local $sSourceVariable = 'XLAUNCHER_JUNCTION_SOURCE_' & @AutoItPID
+	Local $sDestinationVariable = 'XLAUNCHER_JUNCTION_DESTINATION_' & @AutoItPID
+	If EnvSet($sSourceVariable, $sSource) <> 1 Then Return SetError(1, 0, 0)
+	If EnvSet($sDestinationVariable, $sDestination) <> 1 Then
+		EnvSet($sSourceVariable)
+		Return SetError(1, 0, 0)
+	EndIf
+
+	Local $sCommand = @ComSpec & ' /D /S /C "mklink /J ""%' & $sDestinationVariable & _
+			'%"" ""%' & $sSourceVariable & '%"" >nul 2>&1"'
+	Local $iExitCode = RunWait($sCommand, '', @SW_HIDE)
+	Local $iRunError = @error
+	EnvSet($sSourceVariable)
+	EnvSet($sDestinationVariable)
+	If $iRunError Or $iExitCode <> 0 Then Return SetError(2, $iExitCode, 0)
+	Return SetError(0, 0, 1)
+EndFunc   ;==>_JunctionCreate
+
+Func _SymbolicLinkCreate($sSource, $sDestination, $bDirectory)
+	Local $iFlags = 0
+	If $bDirectory Then $iFlags = 1
+	Local $aResult, $aLastError, $iNativeError = 0
+
+	; Windows 10 Developer Mode can permit this without elevation. Retry without
+	; the opt-in flag for elevated and older Windows configurations.
+	DllCall('kernel32.dll', 'none', 'SetLastError', 'dword', 0)
+	$aResult = DllCall('kernel32.dll', 'bool', 'CreateSymbolicLinkW', _
+			'wstr', $sDestination, 'wstr', $sSource, 'dword', BitOR($iFlags, 2))
+	If Not @error And IsArray($aResult) And $aResult[0] Then Return SetError(0, 0, 1)
+	$aLastError = DllCall('kernel32.dll', 'dword', 'GetLastError')
+	If IsArray($aLastError) Then $iNativeError = $aLastError[0]
+
+	DllCall('kernel32.dll', 'none', 'SetLastError', 'dword', 0)
+	$aResult = DllCall('kernel32.dll', 'bool', 'CreateSymbolicLinkW', _
+			'wstr', $sDestination, 'wstr', $sSource, 'dword', $iFlags)
+	If Not @error And IsArray($aResult) And $aResult[0] Then Return SetError(0, 0, 1)
+	$aLastError = DllCall('kernel32.dll', 'dword', 'GetLastError')
+	If IsArray($aLastError) Then $iNativeError = $aLastError[0]
+	Return SetError(1, $iNativeError, 0)
+EndFunc   ;==>_SymbolicLinkCreate
+
+Func _TemporaryLinkTrack($sDestination, $bDirectory, $sOperation, $sSource)
+	$TemporaryLinkCount += 1
+	ReDim $TemporaryLinks[$TemporaryLinkCount + 1][4]
+	$TemporaryLinks[$TemporaryLinkCount][0] = $sDestination
+	$TemporaryLinks[$TemporaryLinkCount][1] = $bDirectory
+	$TemporaryLinks[$TemporaryLinkCount][2] = $sOperation
+	$TemporaryLinks[$TemporaryLinkCount][3] = $sSource
+EndFunc   ;==>_TemporaryLinkTrack
+
+Func _LinkRemove($sDestination, $bDirectory, $sExpectedSource = '', $iExpectedTag = 0)
+	Local $iAttributes = _LinkPathAttributes($sDestination)
+	If @error Then Return SetError(0, 4, 1)
+	If BitAND($iAttributes, 0x400) = 0 Then Return SetError(1, 0, 0)
+	If $iExpectedTag <> 0 And _LinkReparseTag($sDestination) <> $iExpectedTag Then _
+			Return SetError(3, 0, 0)
+	If $sExpectedSource <> '' And Not _LinkTargetsMatch($sExpectedSource, $sDestination) Then _
+			Return SetError(4, 0, 0)
+
+	DllCall('kernel32.dll', 'none', 'SetLastError', 'dword', 0)
+	Local $aResult
+	If $bDirectory Then
+		$aResult = DllCall('kernel32.dll', 'bool', 'RemoveDirectoryW', 'wstr', $sDestination)
+	Else
+		$aResult = DllCall('kernel32.dll', 'bool', 'DeleteFileW', 'wstr', $sDestination)
+	EndIf
+	If Not @error And IsArray($aResult) And $aResult[0] Then Return SetError(0, 1, 1)
+	Local $aLastError = DllCall('kernel32.dll', 'dword', 'GetLastError')
+	Local $iNativeError = 0
+	If IsArray($aLastError) Then $iNativeError = $aLastError[0]
+	Return SetError(2, $iNativeError, 0)
+EndFunc   ;==>_LinkRemove
+
+Func _TemporaryLinksCleanup()
+	Local $bAllSucceeded = True
+	Local $vResult, $iError, $iExtended, $sCleanupOperation
+	For $i = $TemporaryLinkCount To 1 Step -1
+		Local $iExpectedTag = 0xA000000C
+		If $TemporaryLinks[$i][2] = 'Junctions' Then $iExpectedTag = 0xA0000003
+		$vResult = _LinkRemove($TemporaryLinks[$i][0], $TemporaryLinks[$i][1], _
+				$TemporaryLinks[$i][3], $iExpectedTag)
+		$iError = @error
+		$iExtended = @extended
+		If $TemporaryLinks[$i][2] = 'Junctions' Then
+			$sCleanupOperation = 'RemoveJunction'
+		Else
+			$sCleanupOperation = 'RemoveSymLink'
+		EndIf
+		_DebugOperationResult('RunAfter', $sCleanupOperation, $TemporaryLinks[$i][0], _
+				$vResult, $iError, $iExtended)
+		If Not $vResult Then $bAllSucceeded = False
+	Next
+	$TemporaryLinkCount = 0
+	ReDim $TemporaryLinks[1][4]
+	If Not $bAllSucceeded Then Return SetError(1, 0, 0)
+	Return SetError(0, 0, 1)
+EndFunc   ;==>_TemporaryLinksCleanup
+
+;===============================================================================
+;
 ; Function Name:	_DirRemove()
 ; Description:		Deletes a directory/folder
 ; Syntax:			_DirRemove(Path\File|Options)
@@ -2884,8 +3123,23 @@ Func _DebugOperationResult($sSection, $sOperation, $sValue, $vResult, $iError, $
 
 		; These helpers have an explicit Boolean success return.
 		Case 'DirCreate', 'DirMove', 'FileCopy', 'FileDelete', 'FixUserProfile', 'Regedit', _
-				'RegistryRecovery', 'RestoreRegedit'
+				'RegistryRecovery', 'RestoreRegedit', 'Junctions', 'SymLinks', _
+				'RemoveJunction', 'RemoveSymLink'
 			If $iError = 0 And $vResult = 1 Then $sStatus = 'PASS'
+			If ($sOperation = 'Junctions' Or $sOperation = 'SymLinks') And $iError = 0 Then
+				Switch $iExtended
+					Case 1
+						$sDetail = 'lifetime=temporary; cleanup=tracked'
+					Case 2
+						$sDetail = 'lifetime=persistent'
+					Case 3
+						$sDetail = 'reason=matching link already exists; cleanup=not-owned'
+				EndSwitch
+			ElseIf ($sOperation = 'RemoveJunction' Or $sOperation = 'RemoveSymLink') And _
+					$iError = 0 And $iExtended = 4 Then
+				$sStatus = 'SKIP'
+				$sDetail = 'reason=link already absent'
+			EndIf
 
 		; FixDriveLetter returns one when it rewrites the file and zero when the
 		; configured file needs no change or does not yet exist.
@@ -4372,7 +4626,7 @@ Func _TraceCoverageAddOperation(ByRef $aCoverage, ByRef $iCount, $sSection, _
 	Local $aParts = StringSplit($sValue, '|')
 	Local $sSource = '[' & $sSection & '] ' & $sOperation
 	Switch $sOperation
-		Case 'DirCopy', 'DirMove'
+		Case 'DirCopy', 'DirMove', 'Junctions', 'SymLinks'
 			If $aParts[0] >= 1 Then _TraceCoverageAddPathList($aCoverage, $iCount, _
 					$aParts[1], 'PREFIX', $sSource & ' source')
 			If $aParts[0] >= 2 Then _TraceCoverageAddPathList($aCoverage, $iCount, _
@@ -7289,6 +7543,7 @@ Func _FullTestProbeParserRun($sWorkspace, ByRef $sDetails, ByRef $iPass, _
 	Local $iOriginalExpandVar = AutoItSetOption('ExpandVarStrings', 0)
 
 	Local $bDirectories = DirCreate($sValidRoot & '\Disposable') = 1 And _
+			DirCreate($sValidRoot & '\LinkSource') = 1 And _
 			DirCreate($sValidJava & '\bin') = 1 And _
 			DirCreate($sInvalidRoot & '\Lib\Java\setup') = 1
 	Local $sValidContent = '[Options]' & @CRLF & _
@@ -7307,6 +7562,7 @@ Func _FullTestProbeParserRun($sWorkspace, ByRef $sDetails, ByRef $iPass, _
 			'USERPROFILE=.\Profile' & @CRLF & @CRLF & _
 			'[Functions]' & @CRLF & _
 			'FileCopy=.\Source.txt|.\WouldCopy.txt' & @CRLF & _
+			'Junctions=.\LinkSource|.\WouldLink|*' & @CRLF & _
 			'DirRemove=.\Disposable' & @CRLF & @CRLF & _
 			'[RunBefore]' & @CRLF & _
 			'Regedit=.\Portable.reg' & @CRLF & @CRLF & _
@@ -7342,7 +7598,8 @@ Func _FullTestProbeParserRun($sWorkspace, ByRef $sDetails, ByRef $iPass, _
 			'EMPTY_VALUE=' & @CRLF & @CRLF & _
 			'[Functions]' & @CRLF & _
 			'FileCoppy=.\Missing.txt|.\Destination.txt' & @CRLF & _
-			'DirCopy=.\OnlyOneArgument' & @CRLF & @CRLF & _
+			'DirCopy=.\OnlyOneArgument' & @CRLF & _
+			'SymLinks=.\Source.txt|.\WouldLink|' & @CRLF & @CRLF & _
 			'[StringReplace=.\Missing*.txt]' & @CRLF & _
 			'OnlyBegin=value' & @CRLF & @CRLF & _
 			'[StringRegExpReplace=.\InvalidTarget.txt]' & @CRLF & _
@@ -7510,6 +7767,8 @@ Func _FullTestProbeParserRun($sWorkspace, ByRef $sDetails, ByRef $iPass, _
 	Local $bValidOperations = StringInStr($sValidResults, _
 			'[PASS] [Functions] FileCopy argument structure is valid', 1) > 0 And _
 			StringInStr($sValidResults, _
+			'[PASS] [Functions] Junctions argument structure is valid', 1) > 0 And _
+			StringInStr($sValidResults, _
 			'[PASS] [Functions] DirRemove target passed the protected-path check:', 1) > 0 And _
 			StringInStr($sValidResults, _
 			'[PASS] [RunBefore] REG file is readable and contains supported roots:', 1) > 0
@@ -7570,7 +7829,9 @@ Func _FullTestProbeParserRun($sWorkspace, ByRef $sDetails, ByRef $iPass, _
 	Local $bInvalidOperations = StringInStr($sInvalidResults, _
 			'[WARN] [Functions] Unknown operation FileCoppy; did you mean FileCopy?', 1) > 0 And _
 			StringInStr($sInvalidResults, _
-			'[FAIL] [Functions] DirCopy requires source and destination', 1) > 0
+			'[FAIL] [Functions] DirCopy requires source and destination', 1) > 0 And _
+			StringInStr($sInvalidResults, _
+			'[FAIL] [Functions] SymLinks must not end with a trailing pipe', 1) > 0
 	_FullTestAddResult($sDetails, $iPass, $iFail, $iWarn, $iSkip, $iNotUsed, _
 			_FullTestStatus($bInvalidOperations), 'Probe Parser', _
 			'Unknown operation spelling and invalid argument count produced findings')
@@ -7618,7 +7879,9 @@ Func _FullTestProbeParserRun($sWorkspace, ByRef $sDetails, ByRef $iPass, _
 			Not FileExists($sValidRoot & '\WouldWrite.ini') And _
 			Not FileExists($sValidRoot & '\WouldWrite.js') And _
 			Not FileExists($sValidRoot & '\WouldWrite.reg') And _
-			FileExists($sValidRoot & '\Disposable')
+			Not FileExists($sValidRoot & '\WouldLink') And _
+			FileExists($sValidRoot & '\Disposable') And _
+			FileExists($sValidRoot & '\LinkSource')
 	_FullTestAddResult($sDetails, $iPass, $iFail, $iWarn, $iSkip, $iNotUsed, _
 			_FullTestStatus($bReadOnly), 'Probe Parser', _
 			'Parser cross-checks left INIs targets Java sources directories and registry unchanged')
@@ -8947,7 +9210,7 @@ EndFunc   ;==>_ProbeValidateOperationSection
 Func _ProbeOperationIsSupported($sSection, $sOperation)
 	Switch $sSection
 		Case 'Functions'
-			Return StringInStr('|DirCopy|DirCreate|DirMove|DirRemove|FileCopy|FileCreate|FileDelete|FileMove|AddFonts|', _
+			Return StringInStr('|DirCopy|DirCreate|DirMove|DirRemove|FileCopy|FileCreate|FileDelete|FileMove|AddFonts|Junctions|SymLinks|', _
 					'|' & $sOperation & '|', 1) > 0
 		Case 'FirstRunOperations'
 			Return StringInStr('|DirCopy|DirCreate|DirMove|DirRemove|FileCopy|FileCreate|FileDelete|FileMove|RunFile|', _
@@ -8968,6 +9231,89 @@ Func _ProbeValidateOperationValue($sSection, $sOperation, $sValue, ByRef $sResul
 	Local $aMatches
 
 	Switch $sOperation
+		Case 'Junctions', 'SymLinks'
+			If StringRight(StringStripWS($sValue, 3), 1) = '|' Then
+				_ProbeAddResult($sResults, $iPass, $iFail, $iWarn, $iNotUsed, _
+						'FAIL', $sSection, $sOperation & ' must not end with a trailing pipe')
+				Return
+			EndIf
+			If $aParts[0] < 2 Or $aParts[0] > 3 Or $aParts[1] = '' Or $aParts[2] = '' Then
+				_ProbeAddResult($sResults, $iPass, $iFail, $iWarn, $iNotUsed, _
+						'FAIL', $sSection, $sOperation & ' requires nonblank source and destination')
+				Return
+			EndIf
+			If $aParts[0] = 3 And $aParts[3] <> '*' Then
+				_ProbeAddResult($sResults, $iPass, $iFail, $iWarn, $iNotUsed, _
+						'FAIL', $sSection, $sOperation & ' optional third argument must be *', $aParts[3])
+				Return
+			EndIf
+			_ProbeAddResult($sResults, $iPass, $iFail, $iWarn, $iNotUsed, _
+					'PASS', $sSection, $sOperation & ' argument structure is valid')
+			$sSource = _FullPath($aParts[1], $Root)
+			$sDestination = _FullPath($aParts[2], $Root)
+			Local $iLinkSourceAttributes = _LinkPathAttributes($sSource)
+			Local $iLinkSourceError = @error
+			If $iLinkSourceError Then
+				_ProbeAddResult($sResults, $iPass, $iFail, $iWarn, $iNotUsed, _
+						'FAIL', $sSection, $sOperation & ' source does not exist', $sSource)
+			ElseIf $sOperation = 'Junctions' And _
+					BitAND($iLinkSourceAttributes, 0x10) = 0 Then
+				_ProbeAddResult($sResults, $iPass, $iFail, $iWarn, $iNotUsed, _
+						'FAIL', $sSection, 'Junctions source is not a directory', $sSource)
+			ElseIf $sOperation = 'Junctions' And StringLeft($sSource, 2) = '\\' Then
+				_ProbeAddResult($sResults, $iPass, $iFail, $iWarn, $iNotUsed, _
+						'FAIL', $sSection, 'Junctions source cannot be a UNC path', $sSource)
+			Else
+				_ProbeAddResult($sResults, $iPass, $iFail, $iWarn, $iNotUsed, _
+						'PASS', $sSection, $sOperation & ' source exists', $sSource)
+			EndIf
+
+			If $sSource = '' Or $sDestination = '' Then
+				_ProbeAddResult($sResults, $iPass, $iFail, $iWarn, $iNotUsed, _
+						'FAIL', $sSection, $sOperation & ' path could not be resolved')
+				Return
+			EndIf
+			If _LinkCanonicalPath($sSource) = _LinkCanonicalPath($sDestination) Then
+				_ProbeAddResult($sResults, $iPass, $iFail, $iWarn, $iNotUsed, _
+						'FAIL', $sSection, $sOperation & ' source and destination are the same path', _
+						$sDestination)
+				Return
+			EndIf
+
+			Local $iLinkDestinationAttributes = _LinkPathAttributes($sDestination)
+			Local $iLinkDestinationError = @error
+			Local $iLinkExpectedTag = 0xA000000C
+			If $sOperation = 'Junctions' Then $iLinkExpectedTag = 0xA0000003
+			If $iLinkDestinationError Then
+				_ProbeAddResult($sResults, $iPass, $iFail, $iWarn, $iNotUsed, _
+						'PASS', $sSection, $sOperation & ' destination is available', $sDestination)
+			ElseIf BitAND($iLinkDestinationAttributes, 0x400) = 0 Then
+				_ProbeAddResult($sResults, $iPass, $iFail, $iWarn, $iNotUsed, _
+						'FAIL', $sSection, $sOperation & ' destination already exists and is not a link', _
+						$sDestination)
+			ElseIf _LinkReparseTag($sDestination) <> $iLinkExpectedTag Then
+				_ProbeAddResult($sResults, $iPass, $iFail, $iWarn, $iNotUsed, _
+						'FAIL', $sSection, $sOperation & ' destination has the wrong link type', _
+						$sDestination)
+			ElseIf _LinkTargetsMatch($sSource, $sDestination) Then
+				_ProbeAddResult($sResults, $iPass, $iFail, $iWarn, $iNotUsed, _
+						'PASS', $sSection, $sOperation & ' destination is an existing matching link', _
+						$sDestination)
+			Else
+				_ProbeAddResult($sResults, $iPass, $iFail, $iWarn, $iNotUsed, _
+						'FAIL', $sSection, $sOperation & ' destination is an existing link to another target', _
+						$sDestination)
+			EndIf
+			If Not _ProbePathIsWithinRoot($sDestination, $Root) Then
+				_ProbeAddResult($sResults, $iPass, $iFail, $iWarn, $iNotUsed, _
+						'WARN', $sSection, $sOperation & ' destination is outside Root', $sDestination)
+			EndIf
+			If $sOperation = 'SymLinks' And Not IsAdmin() Then
+				_ProbeAddResult($sResults, $iPass, $iFail, $iWarn, $iNotUsed, _
+						'WARN', $sSection, _
+						'SymLinks may require Windows Developer Mode or Run as administrator')
+			EndIf
+
 		Case 'DirCopy', 'DirMove', 'FileCopy', 'FileMove'
 			If $aParts[0] < 2 Or $aParts[0] > 3 Then
 				_ProbeAddResult($sResults, $iPass, $iFail, $iWarn, $iNotUsed, _
@@ -9214,6 +9560,9 @@ Func _RunWaitCleanupRequired($sIni)
 	If Not @error Then
 		For $i = 1 To $aValues[0][0]
 			If $aValues[$i][0] = 'AddFonts' And $aValues[$i][1] <> '' Then Return True
+			If ($aValues[$i][0] = 'Junctions' Or $aValues[$i][0] = 'SymLinks') And _
+					$aValues[$i][1] <> '' And _
+					StringRight(StringStripWS($aValues[$i][1], 3), 2) <> '|*' Then Return True
 		Next
 	EndIf
 

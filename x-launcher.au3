@@ -58,6 +58,8 @@ Global $TestRunAutomated = False
 Global $DebugSessionID = '', $DebugSessionStarted = False, $DebugSessionEnded = False
 Global $DebugPassCount = 0, $DebugFailCount = 0, $DebugWarnCount = 0, $DebugSkipCount = 0, $DebugNotUsedCount = 0
 Global $ExitHandlerRegistered = False
+Global $TemporaryLinkCount = 0
+Global $TemporaryLinks[1][4]
 Global $TraceActive = False, $TraceFinalized = False
 Global $TraceSessionDir = '', $TraceSummaryPath = '', $TraceSettingsPath = ''
 Global $TraceStartTime = '', $TraceProcMonPath = '', $TraceProcMonState = ''
@@ -996,6 +998,12 @@ If Not @error Then
 				$iFunctionExtended = @extended
 				_DebugOperationResult('Functions', $_functions[$f][0], $_functions[$f][1], _
 						$vFunctionResult, $iFunctionError, $iFunctionExtended)
+			Case $_functions[$f][0] = 'Junctions' Or $_functions[$f][0] = 'SymLinks'
+				$vFunctionResult = _LinkCreate($_functions[$f][1], $_functions[$f][0])
+				$iFunctionError = @error
+				$iFunctionExtended = @extended
+				_DebugOperationResult('Functions', $_functions[$f][0], $_functions[$f][1], _
+						$vFunctionResult, $iFunctionError, $iFunctionExtended)
 			Case Else
 				_DebugOperationResult('Functions', $_functions[$f][0], $_functions[$f][1], _
 						$vFunctionResult, $iFunctionError, $iFunctionExtended)
@@ -1607,6 +1615,10 @@ Func _XClose($bInteractiveTraceReport = True)
 		_DebugWrite("[RunAfter] : executed")
 	EndIf
 
+	; Remove only temporary links created and tracked by this launcher process.
+	; Persistent entries ending in |* are never added to this cleanup list.
+	_TemporaryLinksCleanup()
+
 	; Restore Regkeys
 	Local $vRegistryRestoreResult, $iRegistryRestoreError, $iRegistryRestoreExtended
 	Local $_restorekeys = IniReadSection($ScriptIni, 'RunBefore')
@@ -1678,6 +1690,8 @@ Func OnAutoItExit()
 			EndIf
 
 		Case 1 ;Exit function
+			; Covers launch failures and other explicit exits after [Functions].
+			_TemporaryLinksCleanup()
 			If FileExists($TempLog) Then IniWrite($TempLog, 'Status', 'IsClosing', 'false')
 
 		Case 0 ;Natural closing

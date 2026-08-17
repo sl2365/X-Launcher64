@@ -1,0 +1,26 @@
+X-Launcher64 v2.0.0.326 - Junction and Symbolic-Link Source Update
+==================================================
+
+This package contains:
+
+- The complete X-Launcher64 AutoIt source and resources for the v2.0.0.326 build.
+- BUILD.bat for an ordinary checked build.
+- BUILD_TEST.bat for a checked build followed by the permanent regression suite.
+- The complete external Test_Suite, containing all 66 permanent regression tests.
+- The complete Debug_Feature_Test_Kit and its supporting scripts.
+- README.md with the required tool layout and build instructions.
+
+Build tools are not redistributed in this source package. AutoIt 3.3.18.0 and
+the complete AutoIt3Wrapper folder must be placed in the relative shared-tools
+layout documented in README.md.
+
+To build and run every permanent regression test, double-click BUILD_TEST.bat.
+After completion, review Test_Suite\Results.log. To rerun the tests against the
+already-built test launcher, double-click Test_Suite\RUN_TEST.bat.
+
+The Test_Suite and Debug_Feature_Test_Kit are external validation material.
+They are not compiled into X-Launcher.
+
+The source metadata records version 2.0.0.325. AutoIt3Wrapper is configured to
+increment the file version before compilation, so the next build will advance
+the source and executable to v2.0.0.326.

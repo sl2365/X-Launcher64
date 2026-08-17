@@ -1,0 +1,18 @@
+X-Launcher64 v2.0.0.326 - Changes since v1.5.7.20
+=================================================
+
+- Updated X-Launcher to a modern native 64-bit build for Windows 8 and later.
+- Improved application launching, process detection, shutdown handling and exit-code reporting.
+- Corrected RunWait and RunAfter behaviour, including RunAfterStopOnFailure.
+- Added safer file and folder operations, wildcard handling, path validation and temporary-folder deletion.
+- Improved portable profile handling and support for localized Windows shell-folder names.
+- Added FixLocalAppData and FixTemp for easier portable environment configuration.
+- Reworked registry portability, restoration, recovery and registry-view selection.
+- Modernized Java runtime discovery and optional download handling.
+- Added Configuration Probe, Application Trace and isolated Full Test diagnostics.
+- Added optional Process Monitor capture and clearer diagnostic and portability reports.
+- Improved configuration-file rewriting while preserving supported encodings and line endings.
+- Corrected the MultipleInstances setting name.
+- Restored automatic splash-image sizing and corrected splash, tray and language behaviour.
+- Modernized x64 Windows API calls, build metadata and the regression test suite.
+- Added optional junction and symbolic-link creation with safe automatic cleanup or an explicit persistent `*` flag.
