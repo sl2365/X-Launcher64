@@ -1,0 +1,54 @@
+Global $Root = @ScriptDir
+
+#include 'x-udf.au3'
+
+Local $sWork = @ScriptDir & '\Test_Suite\Working\Test31'
+Local $sLog = $sWork & '\Probe.log'
+Local $bAllPass = True
+
+DirRemove($sWork, 1)
+DirCreate($sWork)
+
+Local $sUserFile = $sWork & '\UserPrefs.js'
+_T31WriteBinary($sUserFile, 'EFBBBF2F2F20757365725F70726566282273616D706C652E6E616D65222C2022636F6D6D656E7422293B0A757365725F70726566282273616D706C652E6E616D652E6578747261222C20226B6565702D657874726122293B0A757365725F70726566282273616D706C652E6E616D65222C20226F6C6422293B0A757365725F7072656628226F746865722E6E616D65222C20226B65657022293B0A0A')
+_MozPrefs($sUserFile, 'sample.name', '"new"', 'User')
+Local $bUser = _T31BinaryEquals($sUserFile, 'EFBBBF2F2F20757365725F70726566282273616D706C652E6E616D65222C2022636F6D6D656E7422293B0A757365725F70726566282273616D706C652E6E616D652E6578747261222C20226B6565702D657874726122293B0A757365725F70726566282273616D706C652E6E616D65222C20226E657722293B0A757365725F7072656628226F746865722E6E616D65222C20226B65657022293B0A0A')
+_T31WriteResult($sLog, 'User preference exact match only', $bUser)
+If Not $bUser Then $bAllPass = False
+
+Local $sGlobalFile = $sWork & '\GlobalPrefs.js'
+_T31WriteBinary($sGlobalFile, 'EFBBBF2F2F20707265662822676C6F62616C2E6E616D65222C203939293B0A707265662822676C6F62616C2E6E616D652E6578747261222C2031293B0A707265662822676C6F62616C2E6E616D65222C2032293B0A7072656628226F746865722E6E616D65222C2033293B0A0A')
+_MozPrefs($sGlobalFile, 'global.name', '7', 'Global')
+Local $bGlobal = _T31BinaryEquals($sGlobalFile, 'EFBBBF2F2F20707265662822676C6F62616C2E6E616D65222C203939293B0A707265662822676C6F62616C2E6E616D652E6578747261222C2031293B0A707265662822676C6F62616C2E6E616D65222C2037293B0A7072656628226F746865722E6E616D65222C2033293B0A0A')
+_T31WriteResult($sLog, 'Global preference exact match only', $bGlobal)
+If Not $bGlobal Then $bAllPass = False
+
+If $bAllPass Then Exit 0
+Exit 1
+
+Func _T31WriteBinary($sFile, $sHex)
+	Local $hFile = FileOpen($sFile, 18)
+	If $hFile = -1 Then Return False
+	FileWrite($hFile, Binary('0x' & $sHex))
+	FileClose($hFile)
+	Return True
+EndFunc
+
+Func _T31BinaryEquals($sFile, $sExpectedHex)
+	Local $hFile = FileOpen($sFile, 16)
+	If $hFile = -1 Then Return False
+	Local $bActual = FileRead($hFile)
+	FileClose($hFile)
+	Return $bActual = Binary('0x' & $sExpectedHex)
+EndFunc
+
+Func _T31WriteResult($sFile, $sName, $bPass)
+	Local $hFile = FileOpen($sFile, 1)
+	If $hFile = -1 Then Return
+	If $bPass Then
+		FileWriteLine($hFile, $sName & ': PASS')
+	Else
+		FileWriteLine($hFile, $sName & ': FAIL')
+	EndIf
+	FileClose($hFile)
+EndFunc
