@@ -1,14 +1,5 @@
 # X-Launcher 64
 
-[![Release](https://img.shields.io/github/v/release/sl2365/X-Launcher64?style=for-the-badge-square&color=olive)](https://github.com/sl2365/X-Launcher64/releases/latest/download/X-Launcher64.rar)
-[![Release Date](https://img.shields.io/github/release-date/sl2365/X-Launcher64?style=for-the-badge-square&color=yellow)](https://github.com/sl2365/X-Launcher64/releases)
-
-[![Latest Asset Downloads](https://img.shields.io/github/downloads/sl2365/X-Launcher64/latest/X-Launcher64.rar?style=for-the-badge-square&label=downloads-latest&displayAssetName=false&color=blue)](https://github.com/sl2365/X-Launcher64/releases/latest)
-[![Total Downloads](https://img.shields.io/github/downloads/sl2365/X-Launcher64/total?style=for-the-badge-square&label=downloads-total&color=blue)](https://github.com/sl2365/X-Launcher64/releases)
-
-[![Commits Since Release](https://img.shields.io/github/commits-since/sl2365/X-Launcher64/latest?style=for-the-badge-square&color=green)](https://github.com/sl2365/X-Launcher64/activity)
-[![Last Commit](https://img.shields.io/github/last-commit/sl2365/X-Launcher64?style=for-the-badge-square&color=green)](https://github.com/sl2365/X-Launcher64/activity)
-
 Updated version of the portable launcher. Want to make your apps portable? Use X-Launchers easy to use yet advanced capabilities!
 
 For a quicker response to issues, please post bug reports and FR's on the [PortableFreeware](https://www.portablefreeware.com/forums/viewtopic.php?t=26375) forum.
@@ -94,7 +85,9 @@ For the common Windows folders, two optional `[Options]` settings provide simple
 
 Both settings default to `false`, are independent, and do not require a separate `FixTmp` option. If the same variable is explicitly present in `[Environment]`, that explicit value is processed afterwards and takes priority.
 
-The older `FixAppData` option is separate: it belongs to the existing `USERPROFILE` handling and does not replace these `LOCALAPPDATA`, `TEMP`, or `TMP` settings. It can safely be combined with both new options; X-Launcher captures the Windows shell-folder names before applying the portable environment. Unsafe child-folder names, including names containing control characters, are rejected before a directory can be renamed or created.
+The older `FixAppData` option is separate and is activated while X-Launcher processes a configured `USERPROFILE` entry. With `FixAppData=true` and `USERPROFILE=$Lib$`, `APPDATA` becomes `$Lib$\<the host Roaming folder name>`. It also maintains localized Desktop, Documents and Favorites child names. It does not redirect `LOCALAPPDATA`, `TEMP`, `TMP`, or the Windows LocalLow known folder. `FixLocalAppData=true` handles `LOCALAPPDATA`; Windows has no equivalent LocalLow environment variable. An application that constructs LocalLow from `%USERPROFILE%` may follow the portable profile, but an application using the Windows LocalLow known-folder API may not.
+
+`FixAppData` can safely be combined with both new options; X-Launcher captures the Windows shell-folder names before applying the portable environment. Unsafe child-folder names, including names containing control characters, are rejected before a directory can be renamed or created. Explicit `[Environment]` values are still processed afterwards and take priority.
 
 `FixTemp` does not delete the portable folder. It is unrelated to `[FileSystem] Temp` and `DeleteTemp`, which control X-Launcher’s own working temp. To remove the application’s portable temp after it closes, use the existing internal cleanup operation, for example:
 
@@ -188,7 +181,7 @@ Advanced users can start the launcher with `--x-launcher-test` to choose a mode 
 Probe validates the launcher configuration without changing the configured target. Its report is written to:
 
 ```text
-Diagnostics\<LauncherName>_Configuration_Probe_<timestamp>_<pid>.txt
+Diagnostics\<LauncherName>_Configuration_Probe_<timestamp>_<pid>.log
 ```
 
 The interactive run opens the report when complete.
@@ -234,7 +227,9 @@ Trace automatically creates a temporary write-focused Process Monitor configurat
 
 After the application closes, a tray notification identifies the current finishing phase: Process Monitor export, event conversion, or target/INI classification. The debug and settings logs record the duration of each phase. During conversion, fixed XML fields use direct extraction and non-reportable Process/metadata events are rejected before their remaining fields are decoded. Canonical CSV rows use a fast parser, the initial process-relation block is read without a redundant full-file scan, and repeated targets are collapsed through an indexed lookup.
 
-`DirRemove` cleanup is idempotent. If its resolved target is already absent, ordinary and empty-only (`|e`) removal return success and diagnostics state that the requested cleanup was already complete. Invalid paths, non-directory targets and genuine removal failures remain failures.
+`DirRemove=Path` recursively removes the directory and all its contents; it needs no option. `DirRemove=Path|e` changes the operation to empty-directory-only cleanup and recursively removes only directories that are empty. The `|o` overwrite flag belongs to move and copy operations and is invalid for `DirRemove`.
+
+`DirRemove` cleanup is idempotent. If its resolved target is already absent, ordinary and empty-only (`|e`) removal return success. Configuration Probe reports the absent operation as `NOT USED`, so it remains visible in the complete report without appearing in the FAIL/WARN summary. Invalid paths, non-directory targets and genuine removal failures remain failures.
 
 Process Monitor is executed for three different jobs: start capture, stop capture, and reopen the saved PML for XML export. These are not three separate captures. Windows can request elevation for each control execution.
 
@@ -320,19 +315,10 @@ Debug=true additionally produces detailed .dbg and .log files during normal laun
 | Debug_Feature_Test_Kit | Developer/maintainer | Proves the newly built diagnostic features themselves work correctly. It is not for testing normal applications. |
 | Built-in TestRun modes | Ordinary X-Launcher user | Tests X-Launcher itself or a user’s real application INI. |
 
+
 ## To Do
-- Probe summary should list only Fail and Warn items at end in the summary.
-
-- DirRemove should not require |e or |o at the end, it is removing a file/folder there is no overwrite and if |e is used, it will not remove populated fodlers which is required. So why am I getting this: [FAIL] [RunAfter] DirRemove optional flag must contain e: o - What does it mean?Because this is stupid: [FAIL] [RunAfter] DirRemove accepts only a path and optional e flag. - It will then only allow deleting empty folders and is stupid as the original source was not restricted like this. Why have you made it so? It should absolutely NOT be restricted to only being able to delete empty folders!
-
-- This is not a fail: [FAIL] [RunAfter] DirRemove source does not exist: D:\SyMenu\ProgramFiles\MyApps\X-IObit\User\Microsoft - So perhaps add some way to ignore these? I wouldnt consider this essential as this tells users what is happening, so they can see that these aren't really a fail. But if possible, would be nice to be able to hide these.
-
-- This is totally wrong: [WARN] [RunBefore] Unknown operation: DirCopy - because this line is correct but not working: DirCopy=$Lib$\AppData\Roaming|C:\Users\%USERNAME%\AppData\Roaming|o - So something appears to be broken.
-
-- This is also not a fail: [FAIL] [RunAfter] DirRemove has a dangerous target: protected path: D:\SyMenu\ProgramFiles\MyApps\X-IObit\User\ - Whats dangerous about it? Nothing in the path is dangerous it is exactly as it should be. It is not a system path, it is a folder in the programs directory. Is this being set to protected in the source code? So app files dont get deleted accidentally? If so leave that as is. I guess this should be mentioned in the manual as well, not to specify actions directly on the Root folders? Unless there are exceptions I dont know about? But I would expect something like this to remove all empty folders within that location: DirRemove=$Lib$\|e - Or is that not the correct way to do that?
-
-- For some reason, I am getting this error message: [FAIL] [Environment] Invalid variable name: PROGRAMFILES(x86) - This is a real system varaible so why am I getting this now? It was fully supported previously but seems to have been removed for some unknown reason.
 
 - The manual should list in a table all available EnvVars that can be used in the [Environment] section.
 
-- Add Run key so you can run command line or powershell directly in X-Launcher configs.
+
+

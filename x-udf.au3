@@ -141,11 +141,13 @@ Func _LinkCreate($sValue, $sOperation)
 	Local $iCreateExtended = @extended
 	If Not $bCreated Then Return SetError(10 + $iCreateError, $iCreateExtended, 0)
 
+	; The creation call has just created this previously absent destination from
+	; the exact source supplied above. Confirm that Windows exposed a reparse
+	; point, but do not reject that new link through a second path-resolution
+	; round trip. Some valid links return a different normalized path spelling.
 	$iDestinationAttributes = _LinkPathAttributes($sDestination)
-	If @error Or BitAND($iDestinationAttributes, 0x400) = 0 Or _
-			_LinkReparseTag($sDestination) <> $iExpectedTag Or _
-			Not _LinkTargetsMatch($sSource, $sDestination) Then
-		_LinkRemove($sDestination, $bDirectory, $sSource, $iExpectedTag)
+	If @error Or BitAND($iDestinationAttributes, 0x400) = 0 Then
+		_LinkRemove($sDestination, $bDirectory)
 		Return SetError(20, 0, 0)
 	EndIf
 
@@ -157,7 +159,9 @@ EndFunc   ;==>_LinkCreate
 Func _LinkPathAttributes($sPath)
 	Local $aResult = DllCall('kernel32.dll', 'dword', 'GetFileAttributesW', 'wstr', $sPath)
 	If @error Or Not IsArray($aResult) Then Return SetError(1, 0, 0)
-	If $aResult[0] = -1 Or $aResult[0] = 0xFFFFFFFF Then Return SetError(1, 0, 0)
+	; DllCall's unsigned DWORD return represents INVALID_FILE_ATTRIBUTES
+	; (0xFFFFFFFF) as decimal 4294967295 on x64 AutoIt.
+	If $aResult[0] = 4294967295 Then Return SetError(1, 0, 0)
 	Return SetError(0, 0, $aResult[0])
 EndFunc   ;==>_LinkPathAttributes
 
@@ -223,21 +227,12 @@ Func _LinkTargetsMatch($sSource, $sDestination)
 EndFunc   ;==>_LinkTargetsMatch
 
 Func _JunctionCreate($sSource, $sDestination)
-	Local $sSourceVariable = 'XLAUNCHER_JUNCTION_SOURCE_' & @AutoItPID
-	Local $sDestinationVariable = 'XLAUNCHER_JUNCTION_DESTINATION_' & @AutoItPID
-	If EnvSet($sSourceVariable, $sSource) <> 1 Then Return SetError(1, 0, 0)
-	If EnvSet($sDestinationVariable, $sDestination) <> 1 Then
-		EnvSet($sSourceVariable)
-		Return SetError(1, 0, 0)
-	EndIf
-
-	Local $sCommand = @ComSpec & ' /D /S /C "mklink /J ""%' & $sDestinationVariable & _
-			'%"" ""%' & $sSourceVariable & '%"" >nul 2>&1"'
-	Local $iExitCode = RunWait($sCommand, '', @SW_HIDE)
-	Local $iRunError = @error
-	EnvSet($sSourceVariable)
-	EnvSet($sDestinationVariable)
-	If $iRunError Or $iExitCode <> 0 Then Return SetError(2, $iExitCode, 0)
+	; For a directory source AutoIt's native NTFS-link function creates a
+	; directory junction. This avoids cmd.exe quoting and requires no temporary
+	; script or external utility.
+	Local $iResult = FileCreateNTFSLink($sSource, $sDestination, 0)
+	Local $iCreateError = @error
+	If $iCreateError Or $iResult <> 1 Then Return SetError(2, $iCreateError, 0)
 	Return SetError(0, 0, 1)
 EndFunc   ;==>_JunctionCreate
 
@@ -249,14 +244,14 @@ Func _SymbolicLinkCreate($sSource, $sDestination, $bDirectory)
 	; Windows 10 Developer Mode can permit this without elevation. Retry without
 	; the opt-in flag for elevated and older Windows configurations.
 	DllCall('kernel32.dll', 'none', 'SetLastError', 'dword', 0)
-	$aResult = DllCall('kernel32.dll', 'bool', 'CreateSymbolicLinkW', _
+	$aResult = DllCall('kernel32.dll', 'boolean', 'CreateSymbolicLinkW', _
 			'wstr', $sDestination, 'wstr', $sSource, 'dword', BitOR($iFlags, 2))
 	If Not @error And IsArray($aResult) And $aResult[0] Then Return SetError(0, 0, 1)
 	$aLastError = DllCall('kernel32.dll', 'dword', 'GetLastError')
 	If IsArray($aLastError) Then $iNativeError = $aLastError[0]
 
 	DllCall('kernel32.dll', 'none', 'SetLastError', 'dword', 0)
-	$aResult = DllCall('kernel32.dll', 'bool', 'CreateSymbolicLinkW', _
+	$aResult = DllCall('kernel32.dll', 'boolean', 'CreateSymbolicLinkW', _
 			'wstr', $sDestination, 'wstr', $sSource, 'dword', $iFlags)
 	If Not @error And IsArray($aResult) And $aResult[0] Then Return SetError(0, 0, 1)
 	$aLastError = DllCall('kernel32.dll', 'dword', 'GetLastError')
@@ -300,10 +295,10 @@ Func _TemporaryLinksCleanup()
 	Local $bAllSucceeded = True
 	Local $vResult, $iError, $iExtended, $sCleanupOperation
 	For $i = $TemporaryLinkCount To 1 Step -1
-		Local $iExpectedTag = 0xA000000C
-		If $TemporaryLinks[$i][2] = 'Junctions' Then $iExpectedTag = 0xA0000003
-		$vResult = _LinkRemove($TemporaryLinks[$i][0], $TemporaryLinks[$i][1], _
-				$TemporaryLinks[$i][3], $iExpectedTag)
+		; Only links created and tracked by this launcher instance reach this
+		; cleanup. _LinkRemove still requires the path to remain a reparse point
+		; and uses DeleteFileW/RemoveDirectoryW, which remove only the link.
+		$vResult = _LinkRemove($TemporaryLinks[$i][0], $TemporaryLinks[$i][1])
 		$iError = @error
 		$iExtended = @extended
 		If $TemporaryLinks[$i][2] = 'Junctions' Then
@@ -332,20 +327,96 @@ EndFunc   ;==>_TemporaryLinksCleanup
 Func _DirRemove($sPathPlus)
 	If $sPathPlus = '' Then Return SetError(1, 0, 0)
 	Local $aPath = StringSplit($sPathPlus, '|')
+	Local $bEmptyOnly = $aPath[0] > 1 And StringInStr($aPath[2], 'e', 1) > 0
+	Local $bContentsOnly = _DirRemoveContentsOnlyRequested($aPath[1])
 	Local $sPath = _FullPath($aPath[1])
 	If @error Or $sPath = '' Then Return SetError(2, 0, 0)
 	; Directory cleanup is idempotent: if the target is already absent, the
 	; requested end state has been achieved. Extended value 4 distinguishes this
 	; successful no-op from a directory that was removed during this call.
 	If Not FileExists($sPath) Then Return SetError(0, 4, 1)
+	Local $sSafetyReason = _TempCleanupSafetyReason($sPath)
+	If $sSafetyReason <> '' Then
+		; Lib is a protected persistent-data root. Empty-only cleanup or an
+		; explicit trailing separator may clean below it, but must preserve Lib.
+		If $sSafetyReason = 'protected path' And _
+				_DirRemoveProtectedBaseCanBePreserved($sPath, $bEmptyOnly, $bContentsOnly) Then
+			Local $iProtectedContentsResult = _DirRemoveContents($sPath, $bEmptyOnly)
+			Return SetError(@error, @extended, $iProtectedContentsResult)
+		EndIf
+		Return SetError(5, 0, 0)
+	EndIf
+	If $bContentsOnly Then
+		Local $iContentsResult = _DirRemoveContents($sPath, $bEmptyOnly)
+		Return SetError(@error, @extended, $iContentsResult)
+	EndIf
 	Local $iReturn = 0
-	If $aPath[0] > 1 And StringInStr($aPath[2], 'e', 1) Then
+	; Historical contract: no flag recursively removes the populated directory.
+	; The optional e flag changes the operation to empty-directory-only cleanup.
+	If $bEmptyOnly Then
 		$iReturn = _DirRemoveEmpty($sPath)
 	Else
 		$iReturn = DirRemove($sPath, 1)
 	EndIf
 	Return SetError(@error, 0, $iReturn)
 EndFunc   ;==>_DirRemove
+
+Func _DirRemoveContentsOnlyRequested($sConfiguredPath)
+	$sConfiguredPath = StringStripWS($sConfiguredPath, 3)
+	If $sConfiguredPath = '' Then Return False
+	Local $sLastCharacter = StringRight($sConfiguredPath, 1)
+	Return $sLastCharacter = '\' Or $sLastCharacter = '/'
+EndFunc   ;==>_DirRemoveContentsOnlyRequested
+
+Func _DirRemoveProtectedBaseCanBePreserved($sPath, $bEmptyOnly, $bContentsOnly)
+	If Not $bEmptyOnly And Not $bContentsOnly Then Return False
+	Local $sDeletePath = _CleanupCanonicalPath($sPath)
+	Local $sLibPath = _CleanupCanonicalPath($Lib)
+	Return $sDeletePath <> '' And $sDeletePath = $sLibPath
+EndFunc   ;==>_DirRemoveProtectedBaseCanBePreserved
+
+Func _DirRemoveContents($sDirPath, $bEmptyOnly = False)
+	$sDirPath = StringRegExpReplace($sDirPath, '[\\/ ]+$', '')
+	If $sDirPath = '' Then Return SetError(1, 0, 0)
+	If Not FileExists($sDirPath) Then Return SetError(0, 4, 1)
+	If StringInStr(FileGetAttrib($sDirPath), 'D', 2) = 0 Then Return SetError(3, 0, 0)
+
+	Local $hSearch = FileFindFirstFile($sDirPath & '\*')
+	If $hSearch = -1 Then Return SetError(0, 0, 1)
+
+	Local $iErrors = 0, $iChanged = 0
+	Local $sName, $sChild, $iResult, $iChildError
+	While 1
+		$sName = FileFindNextFile($hSearch)
+		If @error Then ExitLoop
+		$sChild = $sDirPath & '\' & $sName
+		If StringInStr(FileGetAttrib($sChild), 'D', 2) Then
+			If $bEmptyOnly Then
+				$iResult = _DirRemoveEmpty($sChild)
+				$iChildError = @error
+				If $iChildError <> 0 Then
+					$iErrors += 1
+				ElseIf $iResult <> 0 Then
+					$iChanged += 1
+				EndIf
+			ElseIf DirRemove($sChild, 1) = 1 Then
+				$iChanged += 1
+			Else
+				$iErrors += 1
+			EndIf
+		ElseIf Not $bEmptyOnly Then
+			If FileDelete($sChild) = 1 Then
+				$iChanged += 1
+			Else
+				$iErrors += 1
+			EndIf
+		EndIf
+	WEnd
+	FileClose($hSearch)
+
+	If $iErrors > 0 Then Return SetError(6, $iChanged, 0)
+	Return SetError(0, $iChanged, 1)
+EndFunc   ;==>_DirRemoveContents
 
 ;===============================================================================
 ;
@@ -3181,7 +3252,9 @@ Func _DebugOperationResult($sSection, $sOperation, $sValue, $vResult, $iError, $
 			Local $aDirRemove = StringSplit($sValue, '|')
 			Local $bEmptyOnly = False
 			If $aDirRemove[0] > 1 Then $bEmptyOnly = StringInStr($aDirRemove[2], 'e', 1) > 0
-			If $iError = 0 And $vResult = 1 And $iExtended = 4 Then
+			If $iError = 5 Then
+				$sDetail = 'reason=protected target blocked'
+			ElseIf $iError = 0 And $vResult = 1 And $iExtended = 4 Then
 				$sStatus = 'PASS'
 				$sDetail = 'reason=target already absent'
 			ElseIf $iError = 0 And $vResult <> 0 Then
@@ -3362,13 +3435,13 @@ Func _TracePrepare($sTitle, $sLang)
 	$TraceActive = True
 	$TraceFinalized = False
 	$TraceSessionDir = $sCandidate
-	$TraceSummaryPath = $TraceSessionDir & '\Application_Trace_Summary.txt'
+	$TraceSummaryPath = $TraceSessionDir & '\Application_Trace_Summary.log'
 	$TraceSettingsPath = $TraceSessionDir & '\X-Launcher_Settings.log'
 	$TraceProcMonCapturePath = $TraceSessionDir & '\Application_Trace.pml'
 	$TraceProcMonCSVPath = $TraceSessionDir & '\Application_Trace.csv'
 	$TraceProcMonXMLPath = $TraceSessionDir & '\Application_Trace.xml'
 	$TraceProcMonConfigPath = $TraceSessionDir & '\Application_Trace_Filter.pmc'
-	$TracePortabilityReportPath = $TraceSessionDir & '\Application_Portability_Report.txt'
+	$TracePortabilityReportPath = $TraceSessionDir & '\Application_Portability_Report.log'
 	$TracePortabilityState = 'not attempted'
 	$TraceProcMonPID = 0
 	$TraceProcMonCaptureActive = False
@@ -3923,17 +3996,17 @@ EndFunc   ;==>_TracePortabilityProgress
 Func _TraceWritePortabilityUnavailableReport($sReason)
 	Local $sReport = 'X-LAUNCHER APPLICATION PORTABILITY REPORT' & @CRLF & _
 			'=========================================' & @CRLF & @CRLF & _
-			'ANALYSIS STATUS: NOT AVAILABLE' & @CRLF & _
-			'Reason: ' & $sReason & @CRLF & @CRLF & _
-			'Application: ' & $AppName & ' ' & $AppVer & @CRLF & _
-			'INI: ' & $ScriptIni & @CRLF & _
-			'Root: ' & $Root & @CRLF & _
-			'Application PID: ' & $TraceApplicationPID & @CRLF & @CRLF & _
+			'ANALYSIS STATUS=NOT AVAILABLE' & @CRLF & _
+			'Reason=' & $sReason & @CRLF & @CRLF & _
+			'Application=' & $AppName & ' ' & $AppVer & @CRLF & _
+			'INI=' & $ScriptIni & @CRLF & _
+			'Root=' & $Root & @CRLF & _
+			'Application PID=' & $TraceApplicationPID & @CRLF & @CRLF & _
 			'A native Process Monitor capture is required to distinguish application ' & _
 			'writes from X-Launcher actions.' & @CRLF & _
-			'Use Application_Trace_Summary.txt for X-Launcher-owned diagnostic results.' & _
+			'Use Application_Trace_Summary.log for X-Launcher-owned diagnostic results.' & _
 			@CRLF & @CRLF & _
-			'Privacy: Diagnostic files can contain usernames, paths, command lines, ' & _
+			'Privacy=Diagnostic files can contain usernames, paths, command lines, ' & _
 			'document names and registry data. Review them before sharing.' & @CRLF
 	Return _TraceWriteUTF8File($TracePortabilityReportPath, $sReport)
 EndFunc   ;==>_TraceWritePortabilityUnavailableReport
@@ -3994,8 +4067,8 @@ Func _TraceConvertProcMonXMLToCSV($sXMLPath, $sCSVPath)
 			If Not $bProcessRowsWritten Then
 				For $i = 0 To $iMaximumProcessIndex
 					If $aProcesses[$i][0] = '' Then ContinueLoop
-					$sDetail = 'Parent PID: ' & $aProcesses[$i][1] & _
-							', Command line: ' & $aProcesses[$i][3]
+					$sDetail = 'ParentPID: ' & $aProcesses[$i][1] & _
+							', CommandLine: ' & $aProcesses[$i][3]
 					FileWriteLine($hCSV, _TraceCSVQuote($aProcesses[$i][2]) & ',' & _
 							_TraceCSVQuote($aProcesses[$i][0]) & ',' & _
 							_TraceCSVQuote('Process Start') & ',' & _TraceCSVQuote('') & ',' & _
@@ -4223,25 +4296,25 @@ Func _TraceBuildPortabilityReportFromCSV($sCSVPath, $sReportPath, $sIni, _
 
 	Local $sReport = 'X-LAUNCHER APPLICATION PORTABILITY REPORT' & @CRLF & _
 			'=========================================' & @CRLF & @CRLF & _
-			'ANALYSIS STATUS: COMPLETE' & @CRLF & _
-			'Capture: ' & $sCaptureStatus & @CRLF & _
-			'Capture Filter: automatic write-focused filtering with dropped unrelated events' & @CRLF & _
-			'Event Detail: ' & $sDetailStatus & @CRLF & _
-			'Application: ' & $AppName & ' ' & $AppVer & @CRLF & _
-			'INI: ' & $sIni & @CRLF & _
-			'Root: ' & $sRootPath & @CRLF & _
-			'Application PID tree: ' & $sApplicationPIDs & @CRLF & _
-			'Launcher PID tree: ' & $sLauncherPIDs & @CRLF & @CRLF & _
+			'ANALYSIS STATUS=COMPLETE' & @CRLF & _
+			'Capture=' & $sCaptureStatus & @CRLF & _
+			'Capture Filter=automatic write-focused filtering with dropped unrelated events' & @CRLF & _
+			'Event Detail=' & $sDetailStatus & @CRLF & _
+			'Application=' & $AppName & ' ' & $AppVer & @CRLF & _
+			'INI=' & $sIni & @CRLF & _
+			'Root=' & $sRootPath & @CRLF & _
+			'Application PID tree=' & $sApplicationPIDs & @CRLF & _
+			'Launcher PID tree=' & $sLauncherPIDs & @CRLF & @CRLF & _
 			_TraceRenderProcessSection($iApplicationPID, $iLauncherPID, _
 					$sApplicationPIDs, $sLauncherPIDs, $aRelations, $iRelationCount, _
 					$sObservedProcesses) & _
 			'SUMMARY' & @CRLF & _
 			'-------' & @CRLF & _
-			'UNMANAGED application write targets: ' & $iUnmanaged & @CRLF & _
-			'MANAGED application write targets: ' & $iManaged & @CRLF & _
-			'CONTAINED application write targets: ' & $iContained & @CRLF & _
-			'X-LAUNCHER action targets: ' & $iLauncher & @CRLF & _
-			'Relevant failed operations: ' & $iErrorCount & @CRLF & @CRLF & _
+			'UNMANAGED application write targets=' & $iUnmanaged & @CRLF & _
+			'MANAGED application write targets=' & $iManaged & @CRLF & _
+			'CONTAINED application write targets=' & $iContained & @CRLF & _
+			'X-LAUNCHER action targets=' & $iLauncher & @CRLF & _
+			'Relevant failed operations=' & $iErrorCount & @CRLF & @CRLF & _
 			'UNMANAGED means review is recommended; it is not automatic proof of a ' & _
 			'portability failure.' & @CRLF & @CRLF
 
@@ -4273,7 +4346,7 @@ Func _TraceBuildPortabilityReportFromCSV($sCSVPath, $sReportPath, $sIni, _
 			'or portable REG root; it does not prove the rule is semantically correct.' & @CRLF & _
 			'- The preserved Application_Trace.pml remains the detailed source evidence.' & _
 			@CRLF & @CRLF & _
-			'Privacy: This report can contain usernames, paths, process names and registry ' & _
+			'Privacy=This report can contain usernames, paths, process names and registry ' & _
 			'data. Review it before sharing.' & @CRLF
 
 	If Not _TraceWriteUTF8File($sReportPath, $sReport) Then Return SetError(4, 0, False)
@@ -4394,7 +4467,7 @@ Func _TraceCSVCollectProcessRelations($sCSVPath, $iProcess, $iPID, $iOperation, 
 		If $iDetail >= 0 And UBound($aFields) > $iDetail Then $sDetail = $aFields[$iDetail]
 		If $sOperation = 'process start' Then
 			$iChild = Number($aFields[$iPID])
-			$iParent = _TraceDetailNumber($sDetail, 'Parent PID')
+			$iParent = _TraceDetailNumber($sDetail, 'ParentPID')
 		Else
 			$iParent = Number($aFields[$iPID])
 			$iChild = _TraceDetailNumber($sDetail, 'PID')
@@ -4406,7 +4479,7 @@ Func _TraceCSVCollectProcessRelations($sCSVPath, $iProcess, $iPID, $iOperation, 
 		ElseIf UBound($aFields) > $iProcess Then
 			$sName = $aFields[$iProcess]
 		EndIf
-		$sCommandLine = _TraceDetailValue($sDetail, 'Command line')
+		$sCommandLine = _TraceDetailValue($sDetail, 'CommandLine')
 		_TraceRelationAdd($aRelations, $iRelationCount, $iChild, $iParent, _
 				$sName, $sCommandLine)
 	WEnd
@@ -4969,8 +5042,8 @@ Func _TraceRenderProcessSection($iApplicationPID, $iLauncherPID, $sApplicationPI
 		$sLauncherPIDs, ByRef $aRelations, $iRelationCount, $sObservedProcesses)
 	Local $sText = 'ATTRIBUTED PROCESSES AND COMMAND LINES' & @CRLF & _
 			'--------------------------------------' & @CRLF & _
-			'Application root PID: ' & $iApplicationPID & @CRLF & _
-			'Launcher root PID: ' & $iLauncherPID & @CRLF
+			'Application Root PID= ' & $iApplicationPID & @CRLF & _
+			'Launcher Root PID= ' & $iLauncherPID & @CRLF
 	Local $i, $sActor, $iShown = 0
 	For $i = 0 To $iRelationCount - 1
 		$sActor = ''
@@ -4981,17 +5054,17 @@ Func _TraceRenderProcessSection($iApplicationPID, $iLauncherPID, $sApplicationPI
 		EndIf
 		If $sActor = '' Then ContinueLoop
 		$iShown += 1
-		$sText &= @CRLF & 'Actor: ' & $sActor & @CRLF & _
-				'PID: ' & $aRelations[$i][0] & @CRLF & _
-				'Parent PID: ' & $aRelations[$i][1] & @CRLF & _
-				'Process: ' & $aRelations[$i][2] & @CRLF
+		$sText &= @CRLF & 'Actor= ' & $sActor & @CRLF & _
+				'PID= ' & $aRelations[$i][0] & @CRLF & _
+				'ParentPID= ' & $aRelations[$i][1] & @CRLF & _
+				'Process= ' & $aRelations[$i][2] & @CRLF
 		If $aRelations[$i][3] <> '' Then
-			$sText &= 'Command line: ' & $aRelations[$i][3] & @CRLF
+			$sText &= 'CommandLine= ' & $aRelations[$i][3] & @CRLF
 		Else
-			$sText &= 'Command line: not available in exported relation' & @CRLF
+			$sText &= 'CommandLine= not available in exported relation' & @CRLF
 		EndIf
 	Next
-	If $iShown = 0 Then $sText &= 'Process-start relations: none attributed' & @CRLF
+	If $iShown = 0 Then $sText &= 'Process-start relations= none attributed' & @CRLF
 	If $sObservedProcesses <> '' Then
 		$sText &= @CRLF & 'WMI-OBSERVED APPLICATION CHILDREN' & @CRLF & _
 				$sObservedProcesses
@@ -5013,18 +5086,18 @@ Func _TraceRenderRecordSection($sTitle, $sClass, ByRef $aRecords, $iCount)
 					$aRecords[$i][7])
 		EndIf
 		$sText &= @CRLF & '[' & $aRecords[$i][1] & '] ' & $sState & @CRLF & _
-				'Actor: ' & $aRecords[$i][0] & @CRLF & _
-				'Process: ' & $aRecords[$i][5] & @CRLF & _
-				'Actions: ' & $aRecords[$i][4] & ' (' & $aRecords[$i][6] & _
+				'Actor= ' & $aRecords[$i][0] & @CRLF & _
+				'Process= ' & $aRecords[$i][5] & @CRLF & _
+				'Actions= ' & $aRecords[$i][4] & ' (' & $aRecords[$i][6] & _
 				' captured events)' & @CRLF & _
-				'Path: ' & $aRecords[$i][2] & @CRLF
+				'Path= ' & $aRecords[$i][2] & @CRLF
 		If $sClass = 'RELEVANT ERROR' Then
-			$sText &= 'Result: ' & $aRecords[$i][8] & @CRLF
+			$sText &= 'Result= ' & $aRecords[$i][8] & @CRLF
 		Else
-			$sText &= 'INI coverage: ' & $aRecords[$i][8] & @CRLF
+			$sText &= 'INIcoverage= ' & $aRecords[$i][8] & @CRLF
 		EndIf
 		If $sClass = 'UNMANAGED' Then
-			$sText &= 'Review: Decide whether this target contains user settings or data; ' & _
+			$sText &= 'Review= Decide whether this target contains user settings or data; ' & _
 					'if it does, add an appropriate INI rule.' & @CRLF
 		EndIf
 	Next
@@ -5035,7 +5108,7 @@ EndFunc   ;==>_TraceRenderRecordSection
 Func _TraceRecordState($sType, $sPath, $sLastOperation)
 	If $sType = 'REGISTRY' Then
 		If StringInStr(StringLower($sLastOperation), 'delete') Then Return 'DELETE OBSERVED'
-		Return 'LAST ACTION: ' & $sLastOperation
+		Return 'LAST ACTION= ' & $sLastOperation
 	EndIf
 	If $sType = 'FILE' Or $sType = 'DIRECTORY' Then
 		If FileExists($sPath) Then Return 'PRESENT AFTER EXIT'
@@ -5228,8 +5301,8 @@ Func _TraceObserveChildProcesses()
 		$sName = _TraceSingleLine(String($oProcess.Name))
 		$sCommandLine = _TraceSingleLine(String($oProcess.CommandLine))
 		$TraceObservedPIDs &= $iPID & '|'
-		$TraceObservedProcesses &= 'PID: ' & $iPID & '; Parent PID: ' & $iParentPID & _
-				'; Name: ' & $sName & '; Command line: ' & $sCommandLine & @CRLF
+		$TraceObservedProcesses &= 'PID= ' & $iPID & '; ParentPID= ' & $iParentPID & _
+				'; Name= ' & $sName & '; CommandLine= ' & $sCommandLine & @CRLF
 		_DebugWrite('[INFO] [Process] Child observed PID=' & $iPID & '; parent=' & $iParentPID & _
 				'; name=' & $sName & '; command=' & $sCommandLine)
 	Next
@@ -5275,14 +5348,14 @@ Func _TraceFinalize($bInteractive = False)
 	Local $sTraceModeLine = 'X-Launcher-only Application Trace (Process Monitor was not started)'
 	Local $sCompleteMode = 'X-Launcher-only'
 	Local $sCaptureLine = '[NOT USED] Native Process Monitor capture was not available.'
-	Local $sSafeguardLine = 'Capture safeguards: maximum ' & $TraceProcMonMaxMB & _
+	Local $sSafeguardLine = 'Capture safeguards=maximum ' & $TraceProcMonMaxMB & _
 			' MiB; reserved free space ' & $TraceProcMonReserveMB & ' MiB'
-	Local $sCaptureResultLine = '[NOT USED] Capture result: no native PML was saved.'
+	Local $sCaptureResultLine = '[NOT USED] Capture result=no native PML was saved.'
 	Local $sBoundaryDetails = _
-			'Inside Root: X-Launcher-recorded configured operations are listed above and in ordered detail.' & @CRLF & _
-			'[NOT USED] Outside Root: application filesystem activity requires Process Monitor capture.' & @CRLF & _
-			'[NOT USED] File residue: application-created residue requires Process Monitor capture and comparison.' & @CRLF & _
-			'[NOT USED] Registry residue: application-created residue requires Process Monitor capture and comparison.' & @CRLF & _
+			'Inside Root=X-Launcher-recorded configured operations are listed above and in ordered detail.' & @CRLF & _
+			'[NOT USED] Outside Root=application filesystem activity requires Process Monitor capture.' & @CRLF & _
+			'[NOT USED] File residue=application-created residue requires Process Monitor capture and comparison.' & @CRLF & _
+			'[NOT USED] Registry residue=application-created residue requires Process Monitor capture and comparison.' & @CRLF & _
 			'Outside-Root writes are warnings, not automatic failures, when capture is added later.'
 	Local $sCaptureLimitation = '- Process Monitor capture was not available or was not completed.'
 	Local $sObservationLimitation = '- Without native capture, this summary records X-Launcher operations and process information only.'
@@ -5290,61 +5363,61 @@ Func _TraceFinalize($bInteractive = False)
 	If $TraceProcMonCaptureSaved And $TraceProcMonCapturePartial Then
 		$sTraceModeLine = 'Application Trace with partial native Process Monitor capture'
 		$sCompleteMode = 'Process Monitor partial capture'
-		$sCaptureLine = '[WARN] Partial native Process Monitor capture: ' & $TraceProcMonCapturePath
-		$sCaptureResultLine = 'Capture result: partial; reason=' & $TraceProcMonPartialReason & _
+		$sCaptureLine = '[WARN] Partial native Process Monitor capture=' & $TraceProcMonCapturePath
+		$sCaptureResultLine = 'Capture result=partial; reason=' & $TraceProcMonPartialReason & _
 				'; size=' & _TraceFormatProcMonBytes($TraceProcMonCaptureBytes) & _
 				'; duration=' & _TraceFormatProcMonDuration($TraceProcMonCaptureDurationMs)
 		$sBoundaryDetails = _
-				'Inside Root: see CONTAINED entries in Application_Portability_Report.txt.' & @CRLF & _
-				'[WARN] Outside Root: review MANAGED and UNMANAGED entries; the partial capture may omit later activity.' & @CRLF & _
-				'[WARN] File residue: after-exit presence is reported only for captured targets.' & @CRLF & _
-				'[WARN] Registry residue: the readable report states the last captured action only.' & @CRLF & _
+				'Inside Root=see CONTAINED entries in Application_Portability_Report.log.' & @CRLF & _
+				'[WARN] Outside Root=review MANAGED and UNMANAGED entries; the partial capture may omit later activity.' & @CRLF & _
+				'[WARN] File residue=after-exit presence is reported only for captured targets.' & @CRLF & _
+				'[WARN] Registry residue=the readable report states the last captured action only.' & @CRLF & _
 				'Outside-Root writes are warnings, not automatic failures.'
 		$sCaptureLimitation = '- Application_Trace.pml is partial because a storage safeguard stopped collection.'
 		$sObservationLimitation = '- The readable report classifies only activity present before the partial capture stopped.'
 	ElseIf $TraceProcMonCaptureSaved Then
 		$sTraceModeLine = 'Application Trace with native Process Monitor capture'
 		$sCompleteMode = 'Process Monitor capture'
-		$sCaptureLine = 'Native Process Monitor capture: ' & $TraceProcMonCapturePath
-		$sCaptureResultLine = 'Capture result: complete; size=' & _
+		$sCaptureLine = 'Native Process Monitor capture=' & $TraceProcMonCapturePath
+		$sCaptureResultLine = 'Capture result=complete; size=' & _
 				_TraceFormatProcMonBytes($TraceProcMonCaptureBytes) & '; duration=' & _
 				_TraceFormatProcMonDuration($TraceProcMonCaptureDurationMs)
 		$sBoundaryDetails = _
-				'Inside Root: see CONTAINED entries in Application_Portability_Report.txt.' & @CRLF & _
-				'Outside Root: review MANAGED and UNMANAGED entries in Application_Portability_Report.txt.' & @CRLF & _
-				'File residue: the readable report states whether each captured file target exists after cleanup.' & @CRLF & _
-				'Registry residue: the readable report states the last captured registry action only.' & @CRLF & _
+				'Inside Root=see CONTAINED entries in Application_Portability_Report.log.' & @CRLF & _
+				'Outside Root=review MANAGED and UNMANAGED entries in Application_Portability_Report.log.' & @CRLF & _
+				'File residue=the readable report states whether each captured file target exists after cleanup.' & @CRLF & _
+				'Registry residue=the readable report states the last captured registry action only.' & @CRLF & _
 				'Outside-Root writes are warnings, not automatic failures.'
 		$sCaptureLimitation = '- Application_Trace.pml requires Process Monitor for detailed inspection and may contain private information.'
 		$sObservationLimitation = '- The readable report classifies captured write-like activity; it cannot prove that every application action was observed.'
 	ElseIf FileExists($TraceProcMonCapturePath) Then
 		$TraceProcMonCaptureBytes = FileGetSize($TraceProcMonCapturePath)
-		$sCaptureLine = '[WARN] Native Process Monitor capture was not confirmed complete: ' & _
+		$sCaptureLine = '[WARN] Native Process Monitor capture was not confirmed complete=' & _
 				$TraceProcMonCapturePath
-		$sCaptureResultLine = '[WARN] Capture result: unconfirmed; size=' & _
+		$sCaptureResultLine = '[WARN] Capture result=unconfirmed; size=' & _
 				_TraceFormatProcMonBytes($TraceProcMonCaptureBytes)
 	EndIf
 
 	Local $sReport = 'X-LAUNCHER APPLICATION TRACE' & @CRLF & _
 			'============================' & @CRLF & _
-			'Mode: ' & $sTraceModeLine & @CRLF & _
-			'Start: ' & $TraceStartTime & @CRLF & _
-			'End: ' & _DebugSessionTimestamp() & @CRLF & _
-			'Session: ' & $DebugSessionID & @CRLF & _
-			'Launcher version: ' & $sLauncherVersion & @CRLF & _
-			'INI: ' & $ScriptIni & @CRLF & _
-			'Application: ' & $AppName & ' ' & $AppVer & @CRLF & _
-			'Root: ' & $Root & @CRLF & _
-			'Executable: ' & $PathToExe & @CRLF & _
-			'Windows: ' & @OSVersion & ' ' & @OSServicePack & ' (build ' & @OSBuild & _
+			'Mode=' & $sTraceModeLine & @CRLF & _
+			'Start=' & $TraceStartTime & @CRLF & _
+			'End=' & _DebugSessionTimestamp() & @CRLF & _
+			'Session=' & $DebugSessionID & @CRLF & _
+			'Launcher version=' & $sLauncherVersion & @CRLF & _
+			'INI=' & $ScriptIni & @CRLF & _
+			'Application=' & $AppName & ' ' & $AppVer & @CRLF & _
+			'Root=' & $Root & @CRLF & _
+			'Executable=' & $PathToExe & @CRLF & _
+			'Windows=' & @OSVersion & ' ' & @OSServicePack & ' (build ' & @OSBuild & _
 			'; ' & @OSArch & ')' & @CRLF & _
-			'Process Monitor: ' & $TraceProcMonState & @CRLF & _
-			'Readable portability report: ' & $TracePortabilityReportPath & _
+			'Process Monitor=' & $TraceProcMonState & @CRLF & _
+			'Readable portability report=' & $TracePortabilityReportPath & _
 					' (state=' & $TracePortabilityState & ')' & @CRLF & _
 			$sSafeguardLine & @CRLF & _
 			$sCaptureLine & @CRLF & _
 			$sCaptureResultLine & @CRLF & _
-			'Privacy: Review usernames, paths, command lines and document names before sharing.' & _
+			'Privacy=Review usernames, paths, command lines and document names before sharing.' & _
 			@CRLF & @CRLF & _
 			'FILE AND DIRECTORY OPERATIONS (X-LAUNCHER-RECORDED)' & @CRLF & _
 			'---------------------------------------------------' & @CRLF & _
@@ -5354,11 +5427,11 @@ Func _TraceFinalize($bInteractive = False)
 			_TraceSelectDebugLines($sDebugContent, 'registry') & @CRLF & _
 			'PROCESS ACTIVITY' & @CRLF & _
 			'----------------' & @CRLF & _
-			'Launcher PID: ' & @AutoItPID & @CRLF & _
-			'Launcher command line: ' & $CmdLineRaw & @CRLF & _
-			'Application launch PID: ' & $TraceApplicationPID & @CRLF & _
-			'Application exit code: ' & $TraceApplicationExitCode & @CRLF & _
-			'Observed child processes:' & @CRLF & $sChildren & _
+			'Launcher PID=' & @AutoItPID & @CRLF & _
+			'Launcher command line=' & $CmdLineRaw & @CRLF & _
+			'Application launch PID=' & $TraceApplicationPID & @CRLF & _
+			'Application exit code=' & $TraceApplicationExitCode & @CRLF & _
+			'Observed child processes=' & @CRLF & $sChildren & _
 			_TraceSelectDebugLines($sDebugContent, 'process') & @CRLF & _
 			'ERRORS AND WARNINGS' & @CRLF & _
 			'-------------------' & @CRLF & _
@@ -5375,12 +5448,12 @@ Func _TraceFinalize($bInteractive = False)
 			'- X-Launcher never accepts the Process Monitor licence/EULA automatically.' & @CRLF & @CRLF & _
 			'SUMMARY' & @CRLF & _
 			'-------' & @CRLF & _
-			'PASS: ' & $DebugPassCount & @CRLF & _
-			'FAIL: ' & $DebugFailCount & @CRLF & _
-			'WARN: ' & $DebugWarnCount & @CRLF & _
-			'SKIP: ' & $DebugSkipCount & @CRLF & _
-			'NOT USED: ' & $DebugNotUsedCount & @CRLF & _
-			'OVERALL: ' & $sOverall & @CRLF & @CRLF & _
+			'PASS=' & $DebugPassCount & @CRLF & _
+			'FAIL=' & $DebugFailCount & @CRLF & _
+			'WARN=' & $DebugWarnCount & @CRLF & _
+			'SKIP=' & $DebugSkipCount & @CRLF & _
+			'NOT USED=' & $DebugNotUsedCount & @CRLF & _
+			'OVERALL=' & $sOverall & @CRLF & @CRLF & _
 			'ORDERED DIAGNOSTIC DETAIL' & @CRLF & _
 			'-------------------------' & @CRLF
 	If $sDebugContent = '' Then
@@ -5410,22 +5483,28 @@ Func _TraceFinalize($bInteractive = False)
 		Else
 			$sComplete = 'Application Trace completed.'
 		EndIf
-		$sComplete &= @CRLF & @CRLF & 'Mode: ' & $sCompleteMode & @CRLF & _
-				'PASS: ' & $DebugPassCount & @CRLF & _
-				'FAIL: ' & $DebugFailCount & @CRLF & _
-				'WARN: ' & $DebugWarnCount & @CRLF & _
-				'SKIP: ' & $DebugSkipCount & @CRLF & _
-				'NOT USED: ' & $DebugNotUsedCount
+		$sComplete &= @CRLF & @CRLF & 'Mode=' & $sCompleteMode & @CRLF & _
+				'PASS=' & $DebugPassCount & @CRLF & _
+				'FAIL=' & $DebugFailCount & @CRLF & _
+				'WARN=' & $DebugWarnCount & @CRLF & _
+				'SKIP=' & $DebugSkipCount & @CRLF & _
+				'NOT USED=' & $DebugNotUsedCount
 		If $TraceProcMonCaptureSaved Then
-			$sComplete &= @CRLF & 'PML: ' & $TraceProcMonCapturePath & @CRLF & _
-					'Size: ' & _TraceFormatProcMonBytes($TraceProcMonCaptureBytes)
+			$sComplete &= @CRLF & 'PML=' & $TraceProcMonCapturePath & @CRLF & _
+					'Size=' & _TraceFormatProcMonBytes($TraceProcMonCaptureBytes)
 			If $TraceProcMonCapturePartial Then $sComplete &= @CRLF & _
-					'Partial: ' & $TraceProcMonPartialReason
+					'Partial=' & $TraceProcMonPartialReason
 		EndIf
-		$sComplete &= @CRLF & 'Portability report: ' & $TracePortabilityReportPath
-		$sComplete &= @CRLF & @CRLF & $TraceSummaryPath
+		Local $sOpenReport = $TraceSummaryPath
+		If StringLeft($TracePortabilityState, 9) = 'complete;' And _
+				FileExists($TracePortabilityReportPath) Then
+			$sOpenReport = $TracePortabilityReportPath
+		EndIf
+		$sComplete &= @CRLF & 'Portability report=' & $TracePortabilityReportPath
+		$sComplete &= @CRLF & 'Trace summary=' & $TraceSummaryPath
+		$sComplete &= @CRLF & @CRLF & 'Opened report=' & $sOpenReport
 		MsgBox(64, $ScriptName, $sComplete)
-		ShellExecute($TraceSummaryPath)
+		ShellExecute($sOpenReport)
 	EndIf
 
 	Return SetError(0, $DebugFailCount, True)
@@ -5701,7 +5780,7 @@ Func _FullTestAddResult(ByRef $sDetails, ByRef $iPass, ByRef $iFail, ByRef $iWar
 			$iNotUsed += 1
 	EndSwitch
 	$sDetails &= '[' & $sStatus & '] [' & $sCategory & '] ' & $sMessage
-	If $sDetail <> '' Then $sDetails &= ': ' & $sDetail
+	If $sDetail <> '' Then $sDetails &= '=' & $sDetail
 	$sDetails &= @CRLF
 EndFunc   ;==>_FullTestAddResult
 
@@ -7559,6 +7638,7 @@ Func _FullTestProbeParserRun($sWorkspace, ByRef $sDetails, ByRef $iPass, _
 			'JavaURL=https://example.invalid/fallback.zip' & @CRLF & @CRLF & _
 			'[Environment]' & @CRLF & _
 			'PROBE_VALID=value' & @CRLF & _
+			'PROGRAMFILES(x86)=.\ProgramFiles32' & @CRLF & _
 			'USERPROFILE=.\Profile' & @CRLF & @CRLF & _
 			'[Functions]' & @CRLF & _
 			'FileCopy=.\Source.txt|.\WouldCopy.txt' & @CRLF & _
@@ -7659,13 +7739,13 @@ Func _FullTestProbeParserRun($sWorkspace, ByRef $sDetails, ByRef $iPass, _
 			'|DeleteTemp|MultipleInstances|FixLocalAppData|FixTemp|RegView|TestRun|ProcMonMaxMB|Java|JavaPath|JavaURL|', _
 			$sInvalidResults, $iInvalidPass, $iInvalidFail, $iInvalidWarn, $iInvalidNotUsed)
 	Local $bKeys = StringInStr($sValidResults, _
-			'[PASS] [Options] Recognized key: MultipleInstances', 1) > 0 And _
+			'[PASS] [Options] Recognized key=MultipleInstances', 1) > 0 And _
 			StringInStr($sValidResults, _
-			'[PASS] [Options] Recognized key: FixLocalAppData', 1) > 0 And _
+			'[PASS] [Options] Recognized key=FixLocalAppData', 1) > 0 And _
 			StringInStr($sValidResults, _
-			'[PASS] [Options] Recognized key: FixTemp', 1) > 0 And _
+			'[PASS] [Options] Recognized key=FixTemp', 1) > 0 And _
 			StringInStr($sInvalidResults, _
-			'[PASS] [Options] Recognized key: MultipleInstances', 1) > 0
+			'[PASS] [Options] Recognized key=MultipleInstances', 1) > 0
 	_FullTestAddResult($sDetails, $iPass, $iFail, $iWarn, $iSkip, $iNotUsed, _
 			_FullTestStatus($bKeys), 'Probe Parser', _
 			'The correctly spelled MultipleInstances option key was recognized')
@@ -7685,16 +7765,16 @@ Func _FullTestProbeParserRun($sWorkspace, ByRef $sDetails, ByRef $iPass, _
 	_ProbeValidateIntegerOption($sValidIni, 'ProcMonMaxMB', 512, 64, 102400, _
 			$sValidResults, $iValidPass, $iValidFail, $iValidWarn, $iValidNotUsed)
 	Local $bValidOptions = StringInStr($sValidResults, _
-			'[PASS] [Options] DeleteTemp is a valid Boolean: false', 1) > 0 And _
+			'[PASS] [Options] DeleteTemp is a valid Boolean=false', 1) > 0 And _
 			StringInStr($sValidResults, _
-			'[PASS] [Options] MultipleInstances is a valid Boolean: true', 1) > 0 And _
+			'[PASS] [Options] MultipleInstances is a valid Boolean=true', 1) > 0 And _
 			StringInStr($sValidResults, _
-			'[PASS] [Options] FixLocalAppData is a valid Boolean: true', 1) > 0 And _
+			'[PASS] [Options] FixLocalAppData is a valid Boolean=true', 1) > 0 And _
 			StringInStr($sValidResults, _
-			'[PASS] [Options] FixTemp is a valid Boolean: false', 1) > 0 And _
-			StringInStr($sValidResults, '[PASS] [Options] RegView is valid: Native', 1) > 0 And _
-			StringInStr($sValidResults, '[PASS] [Options] TestRun is valid: full', 1) > 0 And _
-			StringInStr($sValidResults, '[PASS] [Options] ProcMonMaxMB is valid: 2048', 1) > 0
+			'[PASS] [Options] FixTemp is a valid Boolean=false', 1) > 0 And _
+			StringInStr($sValidResults, '[PASS] [Options] RegView is valid=Native', 1) > 0 And _
+			StringInStr($sValidResults, '[PASS] [Options] TestRun is valid=full', 1) > 0 And _
+			StringInStr($sValidResults, '[PASS] [Options] ProcMonMaxMB is valid=2048', 1) > 0
 	_FullTestAddResult($sDetails, $iPass, $iFail, $iWarn, $iSkip, $iNotUsed, _
 			_FullTestStatus($bValidOptions), 'Probe Parser', _
 			'Valid Boolean RegView TestRun and integer options were accepted')
@@ -7714,13 +7794,13 @@ Func _FullTestProbeParserRun($sWorkspace, ByRef $sDetails, ByRef $iPass, _
 	_ProbeValidateIntegerOption($sInvalidIni, 'ProcMonMaxMB', 512, 64, 102400, _
 			$sInvalidResults, $iInvalidPass, $iInvalidFail, $iInvalidWarn, $iInvalidNotUsed)
 	Local $bInvalidOptions = StringInStr($sInvalidResults, _
-			'[FAIL] [Options] DeleteTemp must be true or false: maybe', 1) > 0 And _
+			'[FAIL] [Options] DeleteTemp must be true or false=maybe', 1) > 0 And _
 			StringInStr($sInvalidResults, _
-			'[FAIL] [Options] MultipleInstances must be true or false: maybe', 1) > 0 And _
+			'[FAIL] [Options] MultipleInstances must be true or false=maybe', 1) > 0 And _
 			StringInStr($sInvalidResults, _
-			'[FAIL] [Options] FixLocalAppData must be true or false: maybe', 1) > 0 And _
+			'[FAIL] [Options] FixLocalAppData must be true or false=maybe', 1) > 0 And _
 			StringInStr($sInvalidResults, _
-			'[FAIL] [Options] FixTemp must be true or false: 1', 1) > 0 And _
+			'[FAIL] [Options] FixTemp must be true or false=1', 1) > 0 And _
 			StringInStr($sInvalidResults, '[FAIL] [Options] RegView is invalid;', 1) > 0 And _
 			StringInStr($sInvalidResults, '[FAIL] [Options] TestRun is invalid;', 1) > 0 And _
 			StringInStr($sInvalidResults, '[FAIL] [Options] ProcMonMaxMB must be an integer', 1) > 0
@@ -7743,9 +7823,9 @@ Func _FullTestProbeParserRun($sWorkspace, ByRef $sDetails, ByRef $iPass, _
 			$iInvalidPass, $iInvalidFail, $iInvalidWarn, $iInvalidNotUsed)
 	Local $bPaths = _ProbePathIsWithinRoot($sValidRoot & '\Child', $sValidRoot) And _
 			Not _ProbePathIsWithinRoot($sProbeRoot & '\Sibling', $sValidRoot) And _
-			StringInStr($sValidResults, '[PASS] [FileSystem] Root resolved:', 1) > 0 And _
-			StringInStr($sInvalidResults, '[FAIL] [FileSystem] Temp could not be resolved:', 1) > 0 And _
-			StringInStr($sInvalidResults, '[FAIL] [FileSystem] UNC did not preserve its UNC prefix:', 1) > 0
+			StringInStr($sValidResults, '[PASS] [FileSystem] Root resolved=', 1) > 0 And _
+			StringInStr($sInvalidResults, '[FAIL] [FileSystem] Temp could not be resolved=', 1) > 0 And _
+			StringInStr($sInvalidResults, '[FAIL] [FileSystem] UNC did not preserve its UNC prefix=', 1) > 0
 	_FullTestAddResult($sDetails, $iPass, $iFail, $iWarn, $iSkip, $iNotUsed, _
 			_FullTestStatus($bPaths), 'Probe Parser', _
 			'Resolved path root boundary and UNC-prefix contracts were classified without access')
@@ -7753,12 +7833,14 @@ Func _FullTestProbeParserRun($sWorkspace, ByRef $sDetails, ByRef $iPass, _
 	_ProbeValidateEnvironment($sValidIni, $sValidResults, $iValidPass, $iValidFail, _
 			$iValidWarn, $iValidNotUsed)
 	Local $bValidEnvironment = StringInStr($sValidResults, _
-			'[PASS] [Environment] Variable name is valid: PROBE_VALID', 1) > 0 And _
+			'[PASS] [Environment] Variable name is accepted by Windows=PROBE_VALID', 1) > 0 And _
 			StringInStr($sValidResults, _
-			'[PASS] [Environment] USERPROFILE resolves without being applied:', 1) > 0
+			'[PASS] [Environment] Variable name is accepted by Windows=PROGRAMFILES(x86)', 1) > 0 And _
+			StringInStr($sValidResults, _
+			'[PASS] [Environment] USERPROFILE resolves without being applied=', 1) > 0
 	_FullTestAddResult($sDetails, $iPass, $iFail, $iWarn, $iSkip, $iNotUsed, _
 			_FullTestStatus($bValidEnvironment), 'Probe Parser', _
-			'Valid environment names and USERPROFILE paths resolved without being applied')
+			'Windows environment names including parentheses and USERPROFILE paths were accepted read-only')
 
 	_ProbeValidateOperationSection($sValidIni, 'Functions', $sValidResults, _
 			$iValidPass, $iValidFail, $iValidWarn, $iValidNotUsed)
@@ -7769,9 +7851,9 @@ Func _FullTestProbeParserRun($sWorkspace, ByRef $sDetails, ByRef $iPass, _
 			StringInStr($sValidResults, _
 			'[PASS] [Functions] Junctions argument structure is valid', 1) > 0 And _
 			StringInStr($sValidResults, _
-			'[PASS] [Functions] DirRemove target passed the protected-path check:', 1) > 0 And _
+			'[PASS] [Functions] DirRemove target passed the protected-path check=', 1) > 0 And _
 			StringInStr($sValidResults, _
-			'[PASS] [RunBefore] REG file is readable and contains supported roots:', 1) > 0
+			'[PASS] [RunBefore] REG file is readable and contains supported roots=', 1) > 0
 	_FullTestAddResult($sDetails, $iPass, $iFail, $iWarn, $iSkip, $iNotUsed, _
 			_FullTestStatus($bValidOperations), 'Probe Parser', _
 			'Valid operation arguments sources destinations and REG files were recognized read-only')
@@ -7779,13 +7861,13 @@ Func _FullTestProbeParserRun($sWorkspace, ByRef $sDetails, ByRef $iPass, _
 	_ProbeValidateDynamicSections($sValidIni, $sValidResults, $iValidPass, $iValidFail, _
 			$iValidWarn, $iValidNotUsed)
 	Local $bValidDynamic = StringInStr($sValidResults, _
-			'[PASS] [StringReplace] Delimiter structure is valid: BEGIN|END', 1) > 0 And _
+			'[PASS] [StringReplace] Delimiter structure is valid=BEGIN|END', 1) > 0 And _
 			StringInStr($sValidResults, _
-			'[PASS] [StringRegExpReplace] Regular expression pattern compiles without changing files:', 1) > 0 And _
-			StringInStr($sValidResults, '[PASS] [WriteToFile] Line selector is valid: EOF', 1) > 0 And _
-			StringInStr($sValidResults, '[PASS] [WriteToIni] Section and key names are valid:', 1) > 0 And _
+			'[PASS] [StringRegExpReplace] Regular expression pattern compiles without changing files=', 1) > 0 And _
+			StringInStr($sValidResults, '[PASS] [WriteToFile] Line selector is valid=EOF', 1) > 0 And _
+			StringInStr($sValidResults, '[PASS] [WriteToIni] Section and key names are valid=', 1) > 0 And _
 			StringInStr($sValidResults, '[PASS] [WriteToPref] Format contains [PREF]', 1) > 0 And _
-			StringInStr($sValidResults, '[PASS] [WriteToReg] MainKey uses a supported registry root:', 1) > 0
+			StringInStr($sValidResults, '[PASS] [WriteToReg] MainKey uses a supported registry root=', 1) > 0
 	_FullTestAddResult($sDetails, $iPass, $iFail, $iWarn, $iSkip, $iNotUsed, _
 			_FullTestStatus($bValidDynamic), 'Probe Parser', _
 			'Valid dynamic delimiters regex and write selectors were accepted without writes')
@@ -7793,11 +7875,11 @@ Func _FullTestProbeParserRun($sWorkspace, ByRef $sDetails, ByRef $iPass, _
 	_ProbeValidateJava($sValidIni, $sValidResults, $iValidPass, $iValidFail, _
 			$iValidWarn, $iValidNotUsed, False)
 	Local $bValidJava = StringInStr($sValidResults, _
-			'[PASS] [Java] Java policy is valid: true', 1) > 0 And _
+			'[PASS] [Java] Java policy is valid=true', 1) > 0 And _
 			StringInStr($sValidResults, _
-			'[PASS] [Java] JavaPath resolves to a usable read-only runtime:', 1) > 0 And _
+			'[PASS] [Java] JavaPath resolves to a usable read-only runtime=', 1) > 0 And _
 			StringInStr($sValidResults, _
-			'[NOT USED] [Java] JavaURL is retained as fallback but not used because JavaPath is usable:', 1) > 0 And _
+			'[NOT USED] [Java] JavaURL is retained as fallback but not used because JavaPath is usable=', 1) > 0 And _
 			StringInStr($sValidResults, _
 			'[NOT USED] [Java] System Java fallback inspection was skipped for the isolated parser test', 1) > 0
 	_FullTestAddResult($sDetails, $iPass, $iFail, $iWarn, $iSkip, $iNotUsed, _
@@ -7816,13 +7898,13 @@ Func _FullTestProbeParserRun($sWorkspace, ByRef $sDetails, ByRef $iPass, _
 	$Lib = $sInvalidRoot & '\Lib'
 	_ProbeValidateEnvironment($sInvalidIni, $sInvalidResults, $iInvalidPass, _
 			$iInvalidFail, $iInvalidWarn, $iInvalidNotUsed)
-	Local $bInvalidEnvironment = StringInStr($sInvalidResults, _
-			'[FAIL] [Environment] Invalid variable name: BAD NAME', 1) > 0 And _
+	Local $bEnvironmentEdgeCases = StringInStr($sInvalidResults, _
+			'[PASS] [Environment] Variable name is accepted by Windows=BAD NAME', 1) > 0 And _
 			StringInStr($sInvalidResults, _
 			'[WARN] [Environment] EMPTY_VALUE has a blank value', 1) > 0
 	_FullTestAddResult($sDetails, $iPass, $iFail, $iWarn, $iSkip, $iNotUsed, _
-			_FullTestStatus($bInvalidEnvironment), 'Probe Parser', _
-			'Invalid and blank environment entries produced the expected findings')
+			_FullTestStatus($bEnvironmentEdgeCases), 'Probe Parser', _
+			'Windows-valid spaced names and blank environment values produced the expected findings')
 
 	_ProbeValidateOperationSection($sInvalidIni, 'Functions', $sInvalidResults, _
 			$iInvalidPass, $iInvalidFail, $iInvalidWarn, $iInvalidNotUsed)
@@ -7839,9 +7921,9 @@ Func _FullTestProbeParserRun($sWorkspace, ByRef $sDetails, ByRef $iPass, _
 	_ProbeValidateDynamicSections($sInvalidIni, $sInvalidResults, $iInvalidPass, _
 			$iInvalidFail, $iInvalidWarn, $iInvalidNotUsed)
 	Local $bInvalidDynamic = StringInStr($sInvalidResults, _
-			'[FAIL] [StringReplace] Key must contain nonblank begin and end delimiters:', 1) > 0 And _
+			'[FAIL] [StringReplace] Key must contain nonblank begin and end delimiters=', 1) > 0 And _
 			StringInStr($sInvalidResults, _
-			'[FAIL] [StringRegExpReplace] Counter must be an integer: bad', 1) > 0 And _
+			'[FAIL] [StringRegExpReplace] Counter must be an integer=bad', 1) > 0 And _
 			StringInStr($sInvalidResults, '[FAIL] [WriteToFile] Line selector must be EOF', 1) > 0 And _
 			StringInStr($sInvalidResults, '[FAIL] [WriteToIni] Key must contain nonblank', 1) > 0 And _
 			StringInStr($sInvalidResults, '[FAIL] [WriteToPref] Format must contain [PREF]', 1) > 0 And _
@@ -7853,10 +7935,10 @@ Func _FullTestProbeParserRun($sWorkspace, ByRef $sDetails, ByRef $iPass, _
 	_ProbeValidateJava($sInvalidIni, $sInvalidResults, $iInvalidPass, $iInvalidFail, _
 			$iInvalidWarn, $iInvalidNotUsed, False)
 	Local $bInvalidJava = StringInStr($sInvalidResults, _
-			'[FAIL] [Java] Java must be false, true or optional: required', 1) > 0 And _
+			'[FAIL] [Java] Java must be false, true or optional=required', 1) > 0 And _
 			StringInStr($sInvalidResults, '[FAIL] [Java] JavaPath must identify a runtime root', 1) > 0 And _
-			StringInStr($sInvalidResults, '[FAIL] [Java] Legacy Java EXE setup package does not have an MZ header:', 1) > 0 And _
-			StringInStr($sInvalidResults, '[FAIL] [Java] JavaURL must be a direct HTTP or HTTPS package URL:', 1) > 0
+			StringInStr($sInvalidResults, '[FAIL] [Java] Legacy Java EXE setup package does not have an MZ header=', 1) > 0 And _
+			StringInStr($sInvalidResults, '[FAIL] [Java] JavaURL must be a direct HTTP or HTTPS package URL=', 1) > 0
 	_FullTestAddResult($sDetails, $iPass, $iFail, $iWarn, $iSkip, $iNotUsed, _
 			_FullTestStatus($bInvalidJava), 'Probe Parser', _
 			'Invalid Java policy path package and URL produced findings without installation')
@@ -7920,7 +8002,7 @@ Func _FullTestRun($sIni, ByRef $sReportPath, ByRef $sWorkspace, ByRef $iPass, _
 	Local $sWorkspaceBase = @TempDir & '\X-Launcher-SelfTest'
 	Local $sReportDir = @ScriptDir & '\Diagnostics\X-Launcher-SelfTest\' & $sSession
 	$sWorkspace = $sWorkspaceBase & '\' & $sSession
-	$sReportPath = $sReportDir & '\Full_Test_Report.txt'
+	$sReportPath = $sReportDir & '\Full_Test_Report.log'
 
 	Local $iSuffix = 1
 	While FileExists($sWorkspace) Or FileExists($sReportDir)
@@ -7928,7 +8010,7 @@ Func _FullTestRun($sIni, ByRef $sReportPath, ByRef $sWorkspace, ByRef $iPass, _
 		$sWorkspace = $sWorkspaceBase & '\' & $sSession
 		$sReportDir = @ScriptDir & '\Diagnostics\X-Launcher-SelfTest\' & _
 				$sSession
-		$sReportPath = $sReportDir & '\Full_Test_Report.txt'
+		$sReportPath = $sReportDir & '\Full_Test_Report.log'
 		$iSuffix += 1
 	WEnd
 	Local $sRegistryRoot = 'HKEY_CURRENT_USER\Software\X-Launcher\SelfTest\' & $sSession
@@ -8155,28 +8237,28 @@ Func _FullTestRun($sIni, ByRef $sReportPath, ByRef $sWorkspace, ByRef $iPass, _
 	If $sLauncherVersion = '' Then $sLauncherVersion = 'source'
 	Local $sReport = 'FULL X-LAUNCHER TEST' & @CRLF & _
 			'====================' & @CRLF & _
-			'Mode: isolated built-in integrity test' & @CRLF & _
-			'Time: ' & _DebugSessionTimestamp() & @CRLF & _
-			'Session: ' & $sSession & @CRLF & _
-			'Launcher version: ' & $sLauncherVersion & @CRLF & _
-			'Application: X-Launcher Full Self-Test' & @CRLF & _
-			'INI context only (configured targets were not used): ' & $sIni & @CRLF & _
-			'Root: ' & $sWorkspace & @CRLF & _
-			'Executable: ' & @ScriptFullPath & @CRLF & _
-			'Workspace: ' & $sWorkspace & @CRLF & _
-			'Registry root: ' & $sRegistryRoot & @CRLF & _
-			'Registry view root: ' & $sRegistryViewRoot & @CRLF & _
-			'Windows: ' & @OSVersion & ' ' & @OSServicePack & ' (build ' & @OSBuild & _
+			'Mode=isolated built-in integrity test' & @CRLF & _
+			'Time=' & _DebugSessionTimestamp() & @CRLF & _
+			'Session=' & $sSession & @CRLF & _
+			'Launcher version=' & $sLauncherVersion & @CRLF & _
+			'Application=X-Launcher Full Self-Test' & @CRLF & _
+			'INI context only (configured targets were not used)=' & $sIni & @CRLF & _
+			'Root=' & $sWorkspace & @CRLF & _
+			'Executable=' & @ScriptFullPath & @CRLF & _
+			'Workspace=' & $sWorkspace & @CRLF & _
+			'Registry root=' & $sRegistryRoot & @CRLF & _
+			'Registry view root=' & $sRegistryViewRoot & @CRLF & _
+			'Windows=' & @OSVersion & ' ' & @OSServicePack & ' (build ' & @OSBuild & _
 			'; ' & @OSArch & ')' & @CRLF & _
-			'Privacy: Review paths and diagnostic details before sharing.' & @CRLF & @CRLF & _
+			'Privacy=Review paths and diagnostic details before sharing.' & @CRLF & @CRLF & _
 			'SUMMARY' & @CRLF & _
 			'-------' & @CRLF & _
-			'PASS: ' & $iPass & @CRLF & _
-			'FAIL: ' & $iFail & @CRLF & _
-			'WARN: ' & $iWarn & @CRLF & _
-			'SKIP: ' & $iSkip & @CRLF & _
-			'NOT USED: ' & $iNotUsed & @CRLF & _
-			'OVERALL: ' & $sOverall & @CRLF & @CRLF & _
+			'PASS=' & $iPass & @CRLF & _
+			'FAIL=' & $iFail & @CRLF & _
+			'WARN=' & $iWarn & @CRLF & _
+			'SKIP=' & $iSkip & @CRLF & _
+			'NOT USED=' & $iNotUsed & @CRLF & _
+			'OVERALL=' & $sOverall & @CRLF & @CRLF & _
 			'ORDERED TEST DETAIL' & @CRLF & _
 			'-------------------' & @CRLF & $sDetails
 
@@ -8439,25 +8521,34 @@ Func _ConfigurationProbe($sIni, $sGlobalIni, ByRef $sReportPath, ByRef $iPass, _
 	If Not FileExists($sReportDir) And DirCreate($sReportDir) <> 1 Then Return SetError(1, 0, False)
 
 	$sReportPath = $sReportDir & '\' & $ScriptName & '_Configuration_Probe_' & _
-			@YEAR & @MON & @MDAY & '_' & @HOUR & @MIN & @SEC & '_' & @AutoItPID & '.txt'
+			@YEAR & @MON & @MDAY & '_' & @HOUR & @MIN & @SEC & '_' & @AutoItPID & '.log'
 
 	Local $sHeader = 'X-LAUNCHER CONFIGURATION PROBE' & @CRLF & _
 			'==================================' & @CRLF & _
-			'Time: ' & _DebugSessionTimestamp() & @CRLF & _
-			'INI: ' & $sIni & @CRLF & _
-			'Root: ' & $Root & @CRLF & _
-			'Mode: READ-ONLY - configured application and operations were not executed.' & @CRLF & _
-			'Privacy: Review paths and configuration details before sharing this report.' & @CRLF & @CRLF
+			'Time=' & _DebugSessionTimestamp() & @CRLF & _
+			'INI=' & $sIni & @CRLF & _
+			'Root=' & $Root & @CRLF & _
+			'Mode=READ-ONLY - configured application and operations were not executed.' & @CRLF & _
+			'Privacy=Review paths and configuration details before sharing this report.' & @CRLF & @CRLF
 	Local $sSummary = @CRLF & 'SUMMARY' & @CRLF & _
 			'-------' & @CRLF & _
-			'PASS: ' & $iPass & @CRLF & _
-			'FAIL: ' & $iFail & @CRLF & _
-			'WARN: ' & $iWarn & @CRLF & _
-			'NOT USED: ' & $iNotUsed & @CRLF
+			'PASS=' & $iPass & @CRLF & _
+			'FAIL=' & $iFail & @CRLF & _
+			'WARN=' & $iWarn & @CRLF & _
+			'NOT USED=' & $iNotUsed & @CRLF
+	Local $sAttention = ''
+	Local $aAttention = StringRegExp($sResults, '(?m)^\[(?:FAIL|WARN)\][^\r\n]*', 3)
+	If IsArray($aAttention) Then
+		$sAttention = @CRLF & 'FINDINGS REQUIRING ATTENTION' & @CRLF & _
+				'------------------------------' & @CRLF
+		For $i = 0 To UBound($aAttention) - 1
+			$sAttention &= $aAttention[$i] & @CRLF
+		Next
+	EndIf
 
 	Local $hReport = FileOpen($sReportPath, 2 + 128)
 	If $hReport = -1 Then Return SetError(2, 0, False)
-	FileWrite($hReport, $sHeader & $sResults & $sSummary)
+	FileWrite($hReport, $sHeader & $sResults & $sSummary & $sAttention)
 	Local $iWriteError = @error
 	FileClose($hReport)
 	If $iWriteError Then Return SetError(3, 0, False)
@@ -8480,7 +8571,7 @@ Func _ProbeAddResult(ByRef $sResults, ByRef $iPass, ByRef $iFail, ByRef $iWarn, 
 	EndSwitch
 
 	$sResults &= '[' & $sStatus & '] [' & $sSection & '] ' & $sMessage
-	If $sDetail <> '' Then $sResults &= ': ' & _ProbeSafeText($sDetail)
+	If $sDetail <> '' Then $sResults &= '=' & _ProbeSafeText($sDetail)
 	$sResults &= @CRLF
 EndFunc   ;==>_ProbeAddResult
 
@@ -9133,14 +9224,23 @@ Func _ProbeValidateEnvironment($sIni, ByRef $sResults, ByRef $iPass, ByRef $iFai
 		$sName = $aValues[$i][0]
 		$sValue = $aValues[$i][1]
 
-		If Not StringRegExp($sName, '^[A-Za-z_][A-Za-z0-9_]*$') Then
+		If $sName = '' Then
 			_ProbeAddResult($sResults, $iPass, $iFail, $iWarn, $iNotUsed, _
-					'FAIL', 'Environment', 'Invalid variable name', $sName)
+					'FAIL', 'Environment', _
+					'Environment variable name is blank; Windows requires a name')
+			ContinueLoop
+		EndIf
+
+		If StringInStr($sName, '=') Then
+			_ProbeAddResult($sResults, $iPass, $iFail, $iWarn, $iNotUsed, _
+					'FAIL', 'Environment', _
+					'Environment variable name contains =; Windows does not allow = in variable names', _
+					$sName)
 			ContinueLoop
 		EndIf
 
 		_ProbeAddResult($sResults, $iPass, $iFail, $iWarn, $iNotUsed, _
-				'PASS', 'Environment', 'Variable name is valid', $sName)
+				'PASS', 'Environment', 'Variable name is accepted by Windows', $sName)
 
 		If $sValue = '' Then
 			_ProbeAddResult($sResults, $iPass, $iFail, $iWarn, $iNotUsed, _
@@ -9354,24 +9454,56 @@ Func _ProbeValidateOperationValue($sSection, $sOperation, $sValue, ByRef $sResul
 					$iPass, $iFail, $iWarn, $iNotUsed)
 
 		Case 'DirRemove', 'FileDelete'
+			Local $bDirRemoveEmptyOnly = False
+			Local $bDirRemoveContentsOnly = False
 			If $sOperation = 'DirRemove' And $aParts[0] > 2 Then
 				_ProbeAddResult($sResults, $iPass, $iFail, $iWarn, $iNotUsed, _
-						'FAIL', $sSection, 'DirRemove accepts only a path and optional e flag')
+						'FAIL', $sSection, _
+						'DirRemove syntax is Path or Path|e; omit the flag to recursively remove populated directories')
 				Return
 			EndIf
 			If $sOperation = 'DirRemove' And $aParts[0] = 2 And _
 					Not StringInStr($aParts[2], 'e', 1) Then
 				_ProbeAddResult($sResults, $iPass, $iFail, $iWarn, $iNotUsed, _
-						'FAIL', $sSection, 'DirRemove optional flag must contain e', $aParts[2])
+						'FAIL', $sSection, _
+						'DirRemove flag is invalid; omit it to recursively remove populated directories or use e to remove only empty directories', _
+						$aParts[2])
 				Return
+			EndIf
+			If $sOperation = 'DirRemove' Then
+				$bDirRemoveEmptyOnly = $aParts[0] = 2 And _
+						StringInStr($aParts[2], 'e', 1) > 0
+				$bDirRemoveContentsOnly = _DirRemoveContentsOnlyRequested($aParts[1])
+				If $aParts[0] = 1 Then
+					_ProbeAddResult($sResults, $iPass, $iFail, $iWarn, $iNotUsed, _
+							'PASS', $sSection, _
+							'DirRemove has no flag and will recursively remove populated directories')
+				Else
+					_ProbeAddResult($sResults, $iPass, $iFail, $iWarn, $iNotUsed, _
+							'PASS', $sSection, _
+							'DirRemove e flag will remove only empty directories recursively')
+				EndIf
 			EndIf
 			$sSource = _ProbeFirstListedPath($aParts[1])
 			_ProbeCheckOperationSource($sSection, $sOperation, $sSource, $sResults, _
 					$iPass, $iFail, $iWarn, $iNotUsed)
 			$sSafetyReason = _TempCleanupSafetyReason($sSource)
 			If $sSafetyReason <> '' Then
-				_ProbeAddResult($sResults, $iPass, $iFail, $iWarn, $iNotUsed, _
-						'FAIL', $sSection, $sOperation & ' has a dangerous target: ' & $sSafetyReason, $sSource)
+				If $sOperation = 'DirRemove' And $sSafetyReason = 'protected path' And _
+						_DirRemoveProtectedBaseCanBePreserved($sSource, _
+						$bDirRemoveEmptyOnly, $bDirRemoveContentsOnly) Then
+					Local $sProtectedCleanupMode = _
+							'trailing separator will remove contents while preserving Lib'
+					If $bDirRemoveEmptyOnly Then $sProtectedCleanupMode = _
+							'e flag will remove empty descendant directories while preserving Lib'
+					_ProbeAddResult($sResults, $iPass, $iFail, $iWarn, $iNotUsed, _
+							'PASS', $sSection, 'DirRemove protected-base cleanup is safe: ' & _
+							$sProtectedCleanupMode, $sSource)
+				Else
+					_ProbeAddResult($sResults, $iPass, $iFail, $iWarn, $iNotUsed, _
+							'FAIL', $sSection, $sOperation & ' has a dangerous target: ' & _
+							$sSafetyReason, $sSource)
+				EndIf
 			ElseIf Not _ProbePathIsWithinRoot($sSource, $Root) Then
 				_ProbeAddResult($sResults, $iPass, $iFail, $iWarn, $iNotUsed, _
 						'WARN', $sSection, $sOperation & ' target is outside Root', $sSource)
@@ -9418,9 +9550,21 @@ EndFunc   ;==>_ProbeFirstListedPath
 
 Func _ProbeCheckOperationSource($sSection, $sOperation, $sSource, ByRef $sResults, _
 		ByRef $iPass, ByRef $iFail, ByRef $iWarn, ByRef $iNotUsed)
-	If $sSource = '' Or Not FileExists($sSource) Then
+	If $sSource = '' Then
 		_ProbeAddResult($sResults, $iPass, $iFail, $iWarn, $iNotUsed, _
 				'FAIL', $sSection, $sOperation & ' source does not exist', $sSource)
+		Return
+	EndIf
+	If Not FileExists($sSource) Then
+		If $sOperation = 'DirRemove' Then
+			_ProbeAddResult($sResults, $iPass, $iFail, $iWarn, $iNotUsed, _
+					'NOT USED', $sSection, _
+					'DirRemove target is already absent; runtime cleanup is not needed', _
+					$sSource)
+		Else
+			_ProbeAddResult($sResults, $iPass, $iFail, $iWarn, $iNotUsed, _
+					'FAIL', $sSection, $sOperation & ' source does not exist', $sSource)
+		EndIf
 		Return
 	EndIf
 
@@ -9668,6 +9812,10 @@ Func _DebugWrite($string)
 			$DebugNotUsedCount += 1
 	EndSwitch
 
-	_FileWriteLog($DebugFile, $string)
+	Local $hDebugFile = FileOpen($DebugFile, 1)
+	If $hDebugFile <> -1 Then
+		FileWriteLine($hDebugFile, StringLeft(_DebugSessionTimestamp(), 19) & ' = ' & $string)
+		FileClose($hDebugFile)
+	EndIf
 
 EndFunc   ;==>_DebugWrite

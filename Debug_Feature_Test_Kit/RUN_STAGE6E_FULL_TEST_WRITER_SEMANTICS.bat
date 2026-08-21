@@ -121,7 +121,7 @@ echo.
 "%TEST_EXE%" "--x-launcher-config=%TEST_INI%" --x-launcher-test=full
 set "LAUNCH_RC=!ERRORLEVEL!"
 
-for /d %%D in ("%TEST_ROOT%\Launcher\Diagnostics\X-Launcher-SelfTest\*") do set "REPORT=%%~fD\Full_Test_Report.txt"
+for /d %%D in ("%TEST_ROOT%\Launcher\Diagnostics\X-Launcher-SelfTest\*") do set "REPORT=%%~fD\Full_Test_Report.log"
 
 if "!LAUNCH_RC!"=="0" (
     call :RECORD PASS "Full Test launcher exit code"
@@ -201,7 +201,7 @@ if not "!FAIL_COUNT!"=="0" (
     >>"%RESULTS%" echo Overall: FAIL
     echo.
     echo Please provide Stage6E_Full_Test_Writer_Semantics_Results.txt and
-    echo Full_Test_Report.txt.
+    echo Full_Test_Report.log.
     goto FINISH_FAIL
 )
 
@@ -210,7 +210,7 @@ echo STAGE 6E FULL TEST WRITER SEMANTICS: PASS
 >>"%RESULTS%" echo Overall: PASS
 echo.
 echo Please provide Stage6E_Full_Test_Writer_Semantics_Results.txt and
-echo Full_Test_Report.txt.
+echo Full_Test_Report.log.
 echo.
 pause
 exit /b 0

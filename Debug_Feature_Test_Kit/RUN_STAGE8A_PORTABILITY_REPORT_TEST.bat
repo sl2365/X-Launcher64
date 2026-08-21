@@ -15,7 +15,7 @@ set "PROCMON_DIR=%ROOT%\Lib\Tools\ProcessMonitor"
 set "PROCMON=%PROCMON_DIR%\Procmon64.exe"
 set "PROCMON_BEFORE=%TEST_ROOT%\Procmon64.before.exe"
 set "RESULTS=%KIT_ROOT%Stage8A_Portability_Report_Test_Results.txt"
-set "REPORT_COPY=%KIT_ROOT%Stage8A_Application_Portability_Report.txt"
+set "REPORT_COPY=%KIT_ROOT%Stage8A_Application_Portability_Report.log"
 set "MANAGED_REG=HKCU\Software\XLauncher_Test\Stage8A_Managed"
 set "UNMANAGED_REG=HKCU\Software\XLauncher_Test\Stage8A_Unmanaged"
 set "SESSION="
@@ -173,8 +173,8 @@ set "LAUNCH_RC=!ERRORLEVEL!"
 
 for /f "delims=" %%D in ('dir /b /ad /o-d "%TEST_ROOT%\Diagnostics\Stage8APortabilityReportTest" 2^>nul') do if not defined SESSION set "SESSION=%TEST_ROOT%\Diagnostics\Stage8APortabilityReportTest\%%D"
 if defined SESSION (
-    set "SUMMARY=!SESSION!\Application_Trace_Summary.txt"
-    set "PORTABILITY=!SESSION!\Application_Portability_Report.txt"
+    set "SUMMARY=!SESSION!\Application_Trace_Summary.log"
+    set "PORTABILITY=!SESSION!\Application_Portability_Report.log"
     set "DEBUG_LOG=!SESSION!\X-Launcher_Debug.dbg"
     set "SETTINGS_LOG=!SESSION!\X-Launcher_Settings.log"
     set "PML=!SESSION!\Application_Trace.pml"
@@ -281,7 +281,7 @@ if not "!FAIL_COUNT!"=="0" (
     >>"%RESULTS%" echo Overall: FAIL
     echo.
     echo Please provide Stage8A_Portability_Report_Test_Results.txt,
-    echo Stage8A_Application_Portability_Report.txt and Command Prompt output.
+    echo Stage8A_Application_Portability_Report.log and Command Prompt output.
     goto FINISH_FAIL
 )
 
@@ -291,7 +291,7 @@ echo STAGE 8A READABLE PORTABILITY REPORT TEST: PASS
 echo.
 echo Please provide these two files from Debug_Feature_Test_Kit:
 echo 1. Stage8A_Portability_Report_Test_Results.txt
-echo 2. Stage8A_Application_Portability_Report.txt
+echo 2. Stage8A_Application_Portability_Report.log
 echo Keep Application_Trace.pml private unless detailed troubleshooting is needed.
 echo.
 pause

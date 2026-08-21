@@ -118,7 +118,7 @@ echo.
 "%TEST_EXE%" "--x-launcher-config=%TEST_INI%" --x-launcher-test=full
 set "LAUNCH_RC=!ERRORLEVEL!"
 
-for /d %%D in ("%TEST_ROOT%\Launcher\Diagnostics\X-Launcher-SelfTest\*") do set "REPORT=%%~fD\Full_Test_Report.txt"
+for /d %%D in ("%TEST_ROOT%\Launcher\Diagnostics\X-Launcher-SelfTest\*") do set "REPORT=%%~fD\Full_Test_Report.log"
 
 if "!LAUNCH_RC!"=="0" (
     call :RECORD PASS "Full Test launcher exit code"
@@ -224,7 +224,7 @@ if not "!FAIL_COUNT!"=="0" (
     >>"%RESULTS%" echo Overall: FAIL
     echo.
     echo Please provide Stage6L_Full_Test_Debug_Reporting_Results.txt and
-    echo Full_Test_Report.txt.
+    echo Full_Test_Report.log.
     goto FINISH_FAIL
 )
 
@@ -243,7 +243,7 @@ echo STAGE 6L FULL TEST DEBUG REPORTING: PASS
 echo.
 echo Please provide these two files:
 echo 1. Stage6L_Full_Test_Debug_Reporting_Results.txt
-echo 2. Full_Test_Report.txt from the Report path shown above
+echo 2. Full_Test_Report.log from the Report path shown above
 goto FINISH_OK
 
 :CHECK_FILE

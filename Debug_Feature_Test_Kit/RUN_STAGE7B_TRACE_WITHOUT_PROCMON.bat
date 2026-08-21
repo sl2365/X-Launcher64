@@ -8,7 +8,7 @@ set "TEST_EXE=%TEST_ROOT%\X-Launcher_x64.exe"
 set "TEST_INI=%TEST_ROOT%\Stage7B_Trace_Without_ProcMon.ini"
 set "ROOT=%TEST_ROOT%\Root"
 set "RESULTS=%KIT_ROOT%Stage7B_Trace_Without_ProcMon_Results.txt"
-set "REPORT_COPY=%KIT_ROOT%Stage7B_Application_Trace_Summary.txt"
+set "REPORT_COPY=%KIT_ROOT%Stage7B_Application_Trace_Summary.log"
 set "SESSION="
 set "SUMMARY="
 set "DEBUG_LOG="
@@ -139,7 +139,7 @@ set "LAUNCH_RC=!ERRORLEVEL!"
 
 for /f "delims=" %%D in ('dir /b /ad /o-d "%TEST_ROOT%\Diagnostics\Stage7BTraceWithoutProcMon" 2^>nul') do if not defined SESSION set "SESSION=%TEST_ROOT%\Diagnostics\Stage7BTraceWithoutProcMon\%%D"
 if defined SESSION (
-    set "SUMMARY=!SESSION!\Application_Trace_Summary.txt"
+    set "SUMMARY=!SESSION!\Application_Trace_Summary.log"
     set "DEBUG_LOG=!SESSION!\X-Launcher_Debug.dbg"
     set "SETTINGS_LOG=!SESSION!\X-Launcher_Settings.log"
 )
@@ -204,7 +204,7 @@ if not "!FAIL_COUNT!"=="0" (
     >>"%RESULTS%" echo Overall: FAIL
     echo.
     echo Please provide Stage7B_Trace_Without_ProcMon_Results.txt,
-    echo Stage7B_Application_Trace_Summary.txt and the Command Prompt output.
+    echo Stage7B_Application_Trace_Summary.log and the Command Prompt output.
     goto FINISH_FAIL
 )
 
@@ -214,7 +214,7 @@ echo STAGE 7B TRACE WITHOUT PROCESS MONITOR: PASS
 echo.
 echo Please provide these two files from Debug_Feature_Test_Kit:
 echo 1. Stage7B_Trace_Without_ProcMon_Results.txt
-echo 2. Stage7B_Application_Trace_Summary.txt
+echo 2. Stage7B_Application_Trace_Summary.log
 echo.
 pause
 exit /b 0

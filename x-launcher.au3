@@ -424,10 +424,10 @@ Switch $TestRun
 				$sProbeComplete = 'Configuration Probe completed.'
 			EndIf
 			$sProbeComplete &= @CRLF & @CRLF & _
-					'PASS: ' & $iProbePass & @CRLF & _
-					'FAIL: ' & $iProbeFail & @CRLF & _
-					'WARN: ' & $iProbeWarn & @CRLF & _
-					'NOT USED: ' & $iProbeNotUsed & @CRLF & @CRLF & $sProbeReport
+					'PASS=' & $iProbePass & @CRLF & _
+					'FAIL=' & $iProbeFail & @CRLF & _
+					'WARN=' & $iProbeWarn & @CRLF & _
+					'NOT USED=' & $iProbeNotUsed & @CRLF & @CRLF & $sProbeReport
 			MsgBox(64, $ScriptName, $sProbeComplete)
 			ShellExecute($sProbeReport)
 		EndIf
@@ -485,11 +485,11 @@ Switch $TestRun
 				$sFullComplete = 'Full X-Launcher Test completed.'
 			EndIf
 			$sFullComplete &= @CRLF & @CRLF & _
-					'PASS: ' & $iFullPass & @CRLF & _
-					'FAIL: ' & $iFullFail & @CRLF & _
-					'WARN: ' & $iFullWarn & @CRLF & _
-					'SKIP: ' & $iFullSkip & @CRLF & _
-					'NOT USED: ' & $iFullNotUsed & @CRLF
+					'PASS=' & $iFullPass & @CRLF & _
+					'FAIL=' & $iFullFail & @CRLF & _
+					'WARN=' & $iFullWarn & @CRLF & _
+					'SKIP=' & $iFullSkip & @CRLF & _
+					'NOT USED=' & $iFullNotUsed & @CRLF
 			If $iFullFail > 0 And $sFullWorkspace <> '' Then
 				$sFullComplete &= @CRLF & 'Preserved workspace: ' & $sFullWorkspace & @CRLF
 			EndIf
@@ -875,7 +875,8 @@ If Not @error Then
 						_DebugEnvironmentResult('APPDATA', $UserProfile & '\' & $AppData, _
 								$UserProfile & '\' & $AppData, $vEnvironmentResult, _
 								$iEnvironmentError, $iEnvironmentExtended)
-						If $WriteLog = 'true' Then IniWrite($Log, 'Environment', 'APPDATA', $AppData)
+						If $WriteLog = 'true' Then _
+								IniWrite($Log, 'Environment', 'APPDATA', $UserProfile & '\' & $AppData)
 					EndIf
 
 					; Fix Desktop
@@ -1449,7 +1450,7 @@ EndFunc   ;==>_CleanupPathProtects
 Func _TempCleanupSafetyReason($sTempPath)
 	Local $sDeletePath = _CleanupCanonicalPath($sTempPath)
 	Local $i
-	Local $aProtected[14] = [ _
+	Local $aProtected[16] = [ _
 			$Root, _
 			@ScriptDir, _
 			@WindowsDir, _
@@ -1463,6 +1464,8 @@ Func _TempCleanupSafetyReason($sTempPath)
 			@CommonFilesDir, _
 			@TempDir, _
 			$Home, _
+			$Bin, _
+			$Lib, _
 			$Backup]
 
 	If $sDeletePath = '' Then Return 'blank or invalid path'

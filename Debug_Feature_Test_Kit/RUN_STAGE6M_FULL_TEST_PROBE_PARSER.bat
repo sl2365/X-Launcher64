@@ -118,7 +118,7 @@ echo.
 "%TEST_EXE%" "--x-launcher-config=%TEST_INI%" --x-launcher-test=full
 set "LAUNCH_RC=!ERRORLEVEL!"
 
-for /d %%D in ("%TEST_ROOT%\Launcher\Diagnostics\X-Launcher-SelfTest\*") do set "REPORT=%%~fD\Full_Test_Report.txt"
+for /d %%D in ("%TEST_ROOT%\Launcher\Diagnostics\X-Launcher-SelfTest\*") do set "REPORT=%%~fD\Full_Test_Report.log"
 
 if "!LAUNCH_RC!"=="0" (
     call :RECORD PASS "Full Test launcher exit code"
@@ -135,12 +135,12 @@ call :CHECK_TEXT "Correct MultipleInstances option key recognized" "[PASS] [Prob
 call :CHECK_TEXT "Valid options accepted" "[PASS] [Probe Parser] Valid Boolean RegView TestRun and integer options were accepted" "!REPORT!"
 call :CHECK_TEXT "Invalid options produced findings" "[PASS] [Probe Parser] Invalid Boolean RegView TestRun and integer options produced findings" "!REPORT!"
 call :CHECK_TEXT "Path and UNC contracts classified" "[PASS] [Probe Parser] Resolved path root boundary and UNC-prefix contracts were classified without access" "!REPORT!"
-call :CHECK_TEXT "Valid environment parsed read-only" "[PASS] [Probe Parser] Valid environment names and USERPROFILE paths resolved without being applied" "!REPORT!"
+call :CHECK_TEXT "Valid environment parsed read-only" "[PASS] [Probe Parser] Windows environment names including parentheses and USERPROFILE paths were accepted read-only" "!REPORT!"
 call :CHECK_TEXT "Valid operations parsed read-only" "[PASS] [Probe Parser] Valid operation arguments sources destinations and REG files were recognized read-only" "!REPORT!"
 call :CHECK_TEXT "Valid dynamic sections accepted" "[PASS] [Probe Parser] Valid dynamic delimiters regex and write selectors were accepted without writes" "!REPORT!"
 call :CHECK_TEXT "Valid Java configuration reported" "[PASS] [Probe Parser] Valid Java policy JavaPath and unused JavaURL fallback were reported without execution" "!REPORT!"
 call :CHECK_TEXT "Cleanup hazards distinguished" "[PASS] [Probe Parser] Safe disposable and protected Root cleanup targets were distinguished" "!REPORT!"
-call :CHECK_TEXT "Invalid environment produced findings" "[PASS] [Probe Parser] Invalid and blank environment entries produced the expected findings" "!REPORT!"
+call :CHECK_TEXT "Environment edge cases produced findings" "[PASS] [Probe Parser] Windows-valid spaced names and blank environment values produced the expected findings" "!REPORT!"
 call :CHECK_TEXT "Invalid operations produced findings" "[PASS] [Probe Parser] Unknown operation spelling and invalid argument count produced findings" "!REPORT!"
 call :CHECK_TEXT "Invalid dynamic sections produced findings" "[PASS] [Probe Parser] Invalid dynamic delimiters regex and write selectors produced findings" "!REPORT!"
 call :CHECK_TEXT "Invalid Java configuration produced findings" "[PASS] [Probe Parser] Invalid Java policy path package and URL produced findings without installation" "!REPORT!"
@@ -229,7 +229,7 @@ if not "!FAIL_COUNT!"=="0" (
     >>"%RESULTS%" echo Overall: FAIL
     echo.
     echo Please provide Stage6M_Full_Test_Probe_Parser_Results.txt and
-    echo Full_Test_Report.txt.
+    echo Full_Test_Report.log.
     goto FINISH_FAIL
 )
 
@@ -248,7 +248,7 @@ echo STAGE 6M FULL TEST CONFIGURATION PROBE PARSER: PASS
 echo.
 echo Please provide these two files:
 echo 1. Stage6M_Full_Test_Probe_Parser_Results.txt
-echo 2. Full_Test_Report.txt from the Report path shown above
+echo 2. Full_Test_Report.log from the Report path shown above
 goto FINISH_OK
 
 :CHECK_FILE

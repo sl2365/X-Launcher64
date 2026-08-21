@@ -145,7 +145,7 @@ set "LAUNCH_RC=!ERRORLEVEL!"
 
 for /f "delims=" %%D in ('dir /b /ad /o-d "%TEST_ROOT%\Diagnostics\Stage5BApplicationTraceTest" 2^>nul') do if not defined SESSION set "SESSION=%TEST_ROOT%\Diagnostics\Stage5BApplicationTraceTest\%%D"
 if defined SESSION (
-    set "SUMMARY=!SESSION!\Application_Trace_Summary.txt"
+    set "SUMMARY=!SESSION!\Application_Trace_Summary.log"
     set "DEBUG_LOG=!SESSION!\X-Launcher_Debug.dbg"
     set "SETTINGS_LOG=!SESSION!\X-Launcher_Settings.log"
 )
@@ -178,21 +178,21 @@ if not errorlevel 1 (
     call :RECORD FAIL "Process Monitor fixture was changed"
 )
 
-call :CHECK_TEXT "Summary identifies X-Launcher-only mode" "Mode: X-Launcher-only Application Trace (Process Monitor was not started)" "!SUMMARY!"
-call :CHECK_TEXT "Summary reports resolved but unstarted Process Monitor" "Process Monitor: available; resolved but not started in this stage" "!SUMMARY!"
+call :CHECK_TEXT "Summary identifies X-Launcher-only mode" "Mode=X-Launcher-only Application Trace (Process Monitor was not started)" "!SUMMARY!"
+call :CHECK_TEXT "Summary reports resolved but unstarted Process Monitor" "Process Monitor=available; resolved but not started in this stage" "!SUMMARY!"
 call :CHECK_TEXT "Summary contains file and directory section" "FILE AND DIRECTORY OPERATIONS (X-LAUNCHER-RECORDED)" "!SUMMARY!"
 call :CHECK_TEXT "Summary contains registry section" "REGISTRY OPERATIONS (X-LAUNCHER-RECORDED)" "!SUMMARY!"
 call :CHECK_TEXT "Summary contains process section" "PROCESS ACTIVITY" "!SUMMARY!"
 call :CHECK_TEXT "Summary contains error section" "ERRORS AND WARNINGS" "!SUMMARY!"
 call :CHECK_TEXT "Summary separates Root boundary and residue" "ROOT BOUNDARY AND RESIDUE" "!SUMMARY!"
-call :CHECK_TEXT "Summary contains privacy warning" "Privacy: Review usernames, paths, command lines and document names before sharing." "!SUMMARY!"
+call :CHECK_TEXT "Summary contains privacy warning" "Privacy=Review usernames, paths, command lines and document names before sharing." "!SUMMARY!"
 call :CHECK_TEXT "Summary contains ordered diagnostic detail" "ORDERED DIAGNOSTIC DETAIL" "!SUMMARY!"
-call :CHECK_TEXT "Summary reports zero X-Launcher failures" "FAIL: 0" "!SUMMARY!"
-call :CHECK_TEXT "Summary reports zero X-Launcher warnings" "WARN: 0" "!SUMMARY!"
-call :CHECK_TEXT "Summary records launcher PID" "Launcher PID:" "!SUMMARY!"
-call :CHECK_TEXT "Summary records application PID" "Application launch PID:" "!SUMMARY!"
-call :CHECK_TEXT "Summary records application exit code" "Application exit code: 0" "!SUMMARY!"
-call :CHECK_TEXT "Summary observed the disposable child process" "Name: ping.exe" "!SUMMARY!"
+call :CHECK_TEXT "Summary reports zero X-Launcher failures" "FAIL=0" "!SUMMARY!"
+call :CHECK_TEXT "Summary reports zero X-Launcher warnings" "WARN=0" "!SUMMARY!"
+call :CHECK_TEXT "Summary records launcher PID" "Launcher PID=" "!SUMMARY!"
+call :CHECK_TEXT "Summary records application PID" "Application launch PID=" "!SUMMARY!"
+call :CHECK_TEXT "Summary records application exit code" "Application exit code=0" "!SUMMARY!"
+call :CHECK_TEXT "Summary observed the disposable child process" "Name= ping.exe" "!SUMMARY!"
 
 call :CHECK_TEXT "Complete lifecycle waiting was enforced" "RunWait forced true:" "!DEBUG_LOG!"
 call :CHECK_TEXT "Debug log records application PID" "[PASS] [Process] Application launch PID=" "!DEBUG_LOG!"
@@ -224,7 +224,7 @@ if not "!FAIL_COUNT!"=="0" (
     >>"%RESULTS%" echo Overall: FAIL
     echo.
     echo Please provide Stage5B_Application_Trace_Test_Results.txt,
-    echo Application_Trace_Summary.txt and X-Launcher_Debug.dbg.
+    echo Application_Trace_Summary.log and X-Launcher_Debug.dbg.
     goto FINISH_FAIL
 )
 
@@ -234,7 +234,7 @@ echo STAGE 5B APPLICATION TRACE TEST: PASS
 echo.
 echo All test files are inside Debug_Feature_Test_Kit.
 echo Please provide Stage5B_Application_Trace_Test_Results.txt and
-echo Application_Trace_Summary.txt.
+echo Application_Trace_Summary.log.
 echo.
 pause
 exit /b 0

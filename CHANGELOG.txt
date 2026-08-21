@@ -1,4 +1,4 @@
-X-Launcher64 v2.0.0.326 - Changes since v1.5.7.20
+X-Launcher64 v2.0.0.330 - Changes since v1.5.7.20
 =================================================
 
 - Updated X-Launcher to a modern native 64-bit build for Windows 8 and later.
@@ -7,12 +7,28 @@ X-Launcher64 v2.0.0.326 - Changes since v1.5.7.20
 - Added safer file and folder operations, wildcard handling, path validation and temporary-folder deletion.
 - Improved portable profile handling and support for localized Windows shell-folder names.
 - Added FixLocalAppData and FixTemp for easier portable environment configuration.
+- Corrected Configuration Probe environment-name validation so standard names such as PROGRAMFILES(x86), names with spaces and custom variables are accepted; only Windows-invalid names receive a specific reason.
+- Corrected normal log output so FixAppData records the full portable APPDATA path instead of only its folder name.
+- Clarified Configuration Probe reporting for recursive DirRemove, empty-only |e and invalid |o usage without changing runtime deletion behaviour.
+- Changed Configuration Probe to report an already-absent DirRemove target as NOT USED instead of FAIL in Functions, FirstRunOperations and RunAfter; missing copy and move sources remain failures.
+- Added protected Lib cleanup modes: |e removes empty descendants while preserving Lib, and a trailing separator removes contents while preserving the target; direct removal of Lib, Bin, Root and other protected paths remains blocked.
 - Reworked registry portability, restoration, recovery and registry-view selection.
 - Modernized Java runtime discovery and optional download handling.
 - Added Configuration Probe, Application Trace and isolated Full Test diagnostics.
+- Changed Configuration Probe report filenames to use the .log extension.
 - Added optional Process Monitor capture and clearer diagnostic and portability reports.
 - Improved configuration-file rewriting while preserving supported encodings and line endings.
 - Corrected the MultipleInstances setting name.
 - Restored automatic splash-image sizing and corrected splash, tray and language behaviour.
 - Modernized x64 Windows API calls, build metadata and the regression test suite.
 - Added optional junction and symbolic-link creation with safe automatic cleanup or an explicit persistent `*` flag.
+- Changed Configuration Probe, Full Test, Application Trace, and regression-suite
+  result label/value separators from colon to equals for consistent diagnostic output.
+- Changed every X-Launcher-generated readable diagnostic report from .txt to .log:
+  Application Trace Summary, Application Portability Report, and Full Test Report.
+- Changed completed native Trace runs to open Application_Portability_Report.log;
+  Application_Trace_Summary.log remains the fallback when analysis is unavailable.
+- Changed remaining Application Portability Report fields from colon separators to
+  key= value formatting for clearer syntax highlighting and scanning.
+- Changed Debug=true .dbg line prefixes from `timestamp : message` to
+  `timestamp = message` for consistent key-value syntax highlighting.
