@@ -1,13 +1,13 @@
 # X-Launcher 64
 
-[![Release](https://img.shields.io/github/v/release/sl2365/X-Launcher64?style=for-the-badge-square&color=olive)](https://github.com/sl2365/X-Launcher64/releases/latest/download/X-Launcher64.rar)
-[![Release Date](https://img.shields.io/github/release-date/sl2365/X-Launcher64?style=for-the-badge-square&color=yellow)](https://github.com/sl2365/X-Launcher64/releases)
+[![Release](https://img.shields.io/github/v/release/sl2365/X-Launcher64?style=for-the-badge-square&logo=github&logoColor=white&color=olive)](https://github.com/sl2365/X-Launcher64/releases/latest/download/X-Launcher64.rar)
+[![Release Date](https://img.shields.io/github/release-date/sl2365/X-Launcher64?style=for-the-badge-square&logo=github&logoColor=white&color=yellow)](https://github.com/sl2365/X-Launcher64/releases)
 
-[![Latest Asset Downloads](https://img.shields.io/github/downloads/sl2365/X-Launcher64/latest/X-Launcher64.rar?style=for-the-badge-square&label=downloads-latest&displayAssetName=false&color=blue)](https://github.com/sl2365/X-Launcher64/releases/latest)
-[![Total Downloads](https://img.shields.io/github/downloads/sl2365/X-Launcher64/total?style=for-the-badge-square&label=downloads-total&color=blue)](https://github.com/sl2365/X-Launcher64/releases)
+[![Latest Asset Downloads](https://img.shields.io/github/downloads/sl2365/X-Launcher64/latest/X-Launcher64.rar?style=for-the-badge-square&logo=github&logoColor=white&label=downloads-latest&displayAssetName=false&color=blue)](https://github.com/sl2365/X-Launcher64/releases/latest)
+[![Total Downloads](https://img.shields.io/github/downloads/sl2365/X-Launcher64/total?style=for-the-badge-square&logo=github&logoColor=white&label=downloads-total&color=blue)](https://github.com/sl2365/X-Launcher64/releases)
 
-[![Commits Since Release](https://img.shields.io/github/commits-since/sl2365/X-Launcher64/latest?style=for-the-badge-square&color=green)](https://github.com/sl2365/X-Launcher64/activity)
-[![Last Commit](https://img.shields.io/github/last-commit/sl2365/X-Launcher64?style=for-the-badge-square&color=green)](https://github.com/sl2365/X-Launcher64/activity)
+[![Commits Since Release](https://img.shields.io/github/commits-since/sl2365/X-Launcher64/latest?style=for-the-badge-square&logo=github&logoColor=white&color=green)](https://github.com/sl2365/X-Launcher64/activity)
+[![Last Commit](https://img.shields.io/github/last-commit/sl2365/X-Launcher64?style=for-the-badge-square&logo=github&logoColor=white&color=green)](https://github.com/sl2365/X-Launcher64/activity)
 
 Updated version of the portable launcher. Want to make your apps portable? Use X-Launchers easy to use yet advanced capabilities!
 
