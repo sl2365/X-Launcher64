@@ -1,5 +1,11 @@
 # X-Launcher 64
 
+[![Release](https://img.shields.io/github/v/release/sl2365/X-Launcher64?style=for-the-badge-square&color=olive)](https://github.com/sl2365/X-Launcher64/releases/latest/download/X-Launcher64.rar)
+[![Release Date](https://img.shields.io/github/release-date/sl2365/X-Launcher64?style=for-the-badge-square&color=yellow)](https://github.com/sl2365/X-Launcher64/releases)
+
+[![Commits Since Release](https://img.shields.io/github/commits-since/sl2365/X-Launcher64/latest?style=for-the-badge-square&color=green)](https://github.com/sl2365/X-Launcher64/activity)
+[![Last Commit](https://img.shields.io/github/last-commit/sl2365/X-Launcher64?style=for-the-badge-square&color=green)](https://github.com/sl2365/X-Launcher64/activity)
+
 Updated version of the portable launcher. Want to make your apps portable? Use X-Launchers easy to use yet advanced capabilities!
 
 For a quicker response to issues, please post bug reports and FR's on the [PortableFreeware](https://www.portablefreeware.com/forums/viewtopic.php?t=26375) forum.
@@ -314,11 +320,4 @@ Debug=true additionally produces detailed .dbg and .log files during normal laun
 | Test_Suite | Developer/maintainer | Proves the audit repairs haven’t broken anything. Its 56 tests validate X-Launcher code. |
 | Debug_Feature_Test_Kit | Developer/maintainer | Proves the newly built diagnostic features themselves work correctly. It is not for testing normal applications. |
 | Built-in TestRun modes | Ordinary X-Launcher user | Tests X-Launcher itself or a user’s real application INI. |
-
-
-## To Do
-
-- The manual should list in a table all available EnvVars that can be used in the [Environment] section.
-
-
 
