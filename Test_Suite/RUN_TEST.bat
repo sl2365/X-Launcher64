@@ -3071,6 +3071,7 @@ copy /y "Working\Test46\Invalid\Config.ini" "Working\Test46\Invalid\Config.befor
 mkdir "Working\Test46\Valid\Root\SourceDir" >nul 2>&1
 mkdir "Working\Test46\Valid\Root\MoveSourceDir" >nul 2>&1
 mkdir "Working\Test46\Valid\Root\RemoveMe" >nul 2>&1
+mkdir "Working\Test46\Valid\Root\RemoveMeEmpty" >nul 2>&1
 > "Working\Test46\Valid\Root\SourceDir\Source.txt" echo SOURCE
 > "Working\Test46\Valid\Root\MoveSourceDir\MoveSource.txt" echo MOVE_SOURCE
 > "Working\Test46\Valid\Root\Source.txt" echo SOURCE
@@ -3145,6 +3146,10 @@ if exist "Working\Test46\Valid\Root\CopiedDir" set "T46_FILES_SAFE=FAIL"
 if not exist "Working\Test46\Valid\Root\MoveSourceDir\MoveSource.txt" set "T46_FILES_SAFE=FAIL"
 if exist "Working\Test46\Valid\Root\MovedDir" set "T46_FILES_SAFE=FAIL"
 if not exist "Working\Test46\Valid\Root\RemoveMe" set "T46_FILES_SAFE=FAIL"
+if not exist "Working\Test46\Valid\Root\RemoveMeEmpty" set "T46_FILES_SAFE=FAIL"
+if exist "Working\Test46\Valid\Root\AlreadyAbsentFunctions" set "T46_FILES_SAFE=FAIL"
+if exist "Working\Test46\Valid\Root\AlreadyAbsentFirstRun" set "T46_FILES_SAFE=FAIL"
+if exist "Working\Test46\Valid\Root\AlreadyAbsentRunAfter" set "T46_FILES_SAFE=FAIL"
 if exist "Working\Test46\Valid\Root\Copied.txt" set "T46_FILES_SAFE=FAIL"
 if exist "Working\Test46\Valid\Root\WouldCreate.txt" set "T46_FILES_SAFE=FAIL"
 if exist "Working\Test46\Valid\Root\WouldCreateDir" set "T46_FILES_SAFE=FAIL"
@@ -3199,24 +3204,27 @@ if not errorlevel 1 set "T46_REG_SAFE=PASS"
 
 set "T46_VALID_REPORT_PATH="
 set "T46_INVALID_REPORT_PATH="
-for %%F in ("Working\Test46\Valid\Launcher\Diagnostics\*.txt") do set "T46_VALID_REPORT_PATH=%%~fF"
-for %%F in ("Working\Test46\Invalid\Launcher\Diagnostics\*.txt") do set "T46_INVALID_REPORT_PATH=%%~fF"
+for %%F in ("Working\Test46\Valid\Launcher\Diagnostics\*.txt" "Working\Test46\Valid\Launcher\Diagnostics\*.log") do if exist "%%~fF" set "T46_VALID_REPORT_PATH=%%~fF"
+for %%F in ("Working\Test46\Invalid\Launcher\Diagnostics\*.txt" "Working\Test46\Invalid\Launcher\Diagnostics\*.log") do if exist "%%~fF" set "T46_INVALID_REPORT_PATH=%%~fF"
+
+set "T46_REPORT_EXTENSION=FAIL"
+if /i "!T46_VALID_REPORT_PATH:~-4!"==".log" if /i "!T46_INVALID_REPORT_PATH:~-4!"==".log" set "T46_REPORT_EXTENSION=PASS"
 
 set "T46_REPORT=FAIL"
 if defined T46_VALID_REPORT_PATH if exist "!T46_VALID_REPORT_PATH!" (
     findstr /c:"X-LAUNCHER CONFIGURATION PROBE" "!T46_VALID_REPORT_PATH!" >nul 2>&1
     if not errorlevel 1 (
-        findstr /x /c:"Mode: READ-ONLY - configured application and operations were not executed." "!T46_VALID_REPORT_PATH!" >nul 2>&1
+        findstr /x /c:"Mode=READ-ONLY - configured application and operations were not executed." "!T46_VALID_REPORT_PATH!" >nul 2>&1
         if not errorlevel 1 (
-            findstr /b /c:"[PASS] [FileToRun] PathToExe exists:" "!T46_VALID_REPORT_PATH!" >nul 2>&1
+            findstr /b /c:"[PASS] [FileToRun] PathToExe exists=" "!T46_VALID_REPORT_PATH!" >nul 2>&1
             if not errorlevel 1 (
-                findstr /x /c:"[PASS] [Options] RegView is valid: Native" "!T46_VALID_REPORT_PATH!" >nul 2>&1
+                findstr /x /c:"[PASS] [Options] RegView is valid=Native" "!T46_VALID_REPORT_PATH!" >nul 2>&1
                 if not errorlevel 1 (
-                    findstr /x /c:"[PASS] [Options] ProcMonMaxMB is valid: 2048" "!T46_VALID_REPORT_PATH!" >nul 2>&1
+                    findstr /x /c:"[PASS] [Options] ProcMonMaxMB is valid=2048" "!T46_VALID_REPORT_PATH!" >nul 2>&1
                     if not errorlevel 1 (
-                        findstr /x /c:"[PASS] [Options] ProcMonReserveMB is valid: 1024" "!T46_VALID_REPORT_PATH!" >nul 2>&1
+                        findstr /x /c:"[PASS] [Options] ProcMonReserveMB is valid=1024" "!T46_VALID_REPORT_PATH!" >nul 2>&1
                         if not errorlevel 1 (
-                            findstr /x /c:"FAIL: 0" "!T46_VALID_REPORT_PATH!" >nul 2>&1
+                            findstr /x /c:"FAIL=0" "!T46_VALID_REPORT_PATH!" >nul 2>&1
                             if not errorlevel 1 set "T46_REPORT=PASS"
                         )
                     )
@@ -3228,23 +3236,23 @@ if defined T46_VALID_REPORT_PATH if exist "!T46_VALID_REPORT_PATH!" (
 
 set "T46_INVALID_REPORT=FAIL"
 if defined T46_INVALID_REPORT_PATH if exist "!T46_INVALID_REPORT_PATH!" (
-    findstr /b /c:"[FAIL] [FileSystem] Temp could not be resolved:" "!T46_INVALID_REPORT_PATH!" >nul 2>&1
+    findstr /b /c:"[FAIL] [FileSystem] Temp could not be resolved=" "!T46_INVALID_REPORT_PATH!" >nul 2>&1
     if not errorlevel 1 (
-        findstr /b /c:"[FAIL] [FileToRun] PathToExe does not exist:" "!T46_INVALID_REPORT_PATH!" >nul 2>&1
+        findstr /b /c:"[FAIL] [FileToRun] PathToExe does not exist=" "!T46_INVALID_REPORT_PATH!" >nul 2>&1
         if not errorlevel 1 (
-            findstr /x /c:"[FAIL] [Options] DeleteTemp must be true or false: maybe" "!T46_INVALID_REPORT_PATH!" >nul 2>&1
+            findstr /x /c:"[FAIL] [Options] DeleteTemp must be true or false=maybe" "!T46_INVALID_REPORT_PATH!" >nul 2>&1
             if not errorlevel 1 (
-                findstr /x /c:"[FAIL] [Options] MultipleInstances must be true or false: maybe" "!T46_INVALID_REPORT_PATH!" >nul 2>&1
+                findstr /x /c:"[FAIL] [Options] MultipleInstances must be true or false=maybe" "!T46_INVALID_REPORT_PATH!" >nul 2>&1
                 if not errorlevel 1 (
-                    findstr /x /c:"[FAIL] [Options] RegView is invalid; use Auto, Native, 32 or 64: Sideways" "!T46_INVALID_REPORT_PATH!" >nul 2>&1
+                    findstr /x /c:"[FAIL] [Options] RegView is invalid; use Auto, Native, 32 or 64=Sideways" "!T46_INVALID_REPORT_PATH!" >nul 2>&1
                     if not errorlevel 1 (
-                        findstr /x /c:"[FAIL] [Options] TestRun is invalid; use false, Probe, Trace or Full: Unexpected" "!T46_INVALID_REPORT_PATH!" >nul 2>&1
+                        findstr /x /c:"[FAIL] [Options] TestRun is invalid; use false, Probe, Trace or Full=Unexpected" "!T46_INVALID_REPORT_PATH!" >nul 2>&1
                         if not errorlevel 1 (
-                            findstr /x /c:"[FAIL] [Options] ProcMonMaxMB must be an integer from 64 to 102400 MB: tiny" "!T46_INVALID_REPORT_PATH!" >nul 2>&1
+                            findstr /x /c:"[FAIL] [Options] ProcMonMaxMB must be an integer from 64 to 102400 MB=tiny" "!T46_INVALID_REPORT_PATH!" >nul 2>&1
                             if not errorlevel 1 (
-                                findstr /x /c:"[FAIL] [Options] ProcMonReserveMB must be an integer from 256 to 102400 MB: 0" "!T46_INVALID_REPORT_PATH!" >nul 2>&1
+                                findstr /x /c:"[FAIL] [Options] ProcMonReserveMB must be an integer from 256 to 102400 MB=0" "!T46_INVALID_REPORT_PATH!" >nul 2>&1
                                 if not errorlevel 1 (
-                                    findstr /x /c:"[WARN] [General] Unknown section: [UnknownSection]" "!T46_INVALID_REPORT_PATH!" >nul 2>&1
+                                    findstr /x /c:"[WARN] [General] Unknown section=[UnknownSection]" "!T46_INVALID_REPORT_PATH!" >nul 2>&1
                                     if not errorlevel 1 set "T46_INVALID_REPORT=PASS"
                                 )
                             )
@@ -3258,16 +3266,19 @@ if defined T46_INVALID_REPORT_PATH if exist "!T46_INVALID_REPORT_PATH!" (
 
 set "T46_OPERATIONS_REPORT=FAIL"
 if defined T46_VALID_REPORT_PATH if exist "!T46_VALID_REPORT_PATH!" (
-    findstr /x /c:"[PASS] [Environment] Variable name is valid: PROBE_TEST_VAR" "!T46_VALID_REPORT_PATH!" >nul 2>&1
+    findstr /x /c:"[PASS] [Environment] Variable name is accepted by Windows=PROBE_TEST_VAR" "!T46_VALID_REPORT_PATH!" >nul 2>&1
     if not errorlevel 1 (
-        findstr /x /c:"[PASS] [Functions] Recognized operation: DirCopy" "!T46_VALID_REPORT_PATH!" >nul 2>&1
+        findstr /x /c:"[PASS] [Environment] Variable name is accepted by Windows=PROGRAMFILES(x86)" "!T46_VALID_REPORT_PATH!" >nul 2>&1
         if not errorlevel 1 (
-            findstr /b /c:"[PASS] [FirstRunOperations] RunFile target exists:" "!T46_VALID_REPORT_PATH!" >nul 2>&1
+            findstr /x /c:"[PASS] [Functions] Recognized operation=DirCopy" "!T46_VALID_REPORT_PATH!" >nul 2>&1
             if not errorlevel 1 (
-                findstr /b /c:"[PASS] [RunBefore] REG file is readable and contains supported roots:" "!T46_VALID_REPORT_PATH!" >nul 2>&1
+                findstr /b /c:"[PASS] [FirstRunOperations] RunFile target exists=" "!T46_VALID_REPORT_PATH!" >nul 2>&1
                 if not errorlevel 1 (
-                    findstr /x /c:"[PASS] [RunAfter] Recognized operation: FileDelete" "!T46_VALID_REPORT_PATH!" >nul 2>&1
-                    if not errorlevel 1 set "T46_OPERATIONS_REPORT=PASS"
+                    findstr /b /c:"[PASS] [RunBefore] REG file is readable and contains supported roots=" "!T46_VALID_REPORT_PATH!" >nul 2>&1
+                    if not errorlevel 1 (
+                        findstr /x /c:"[PASS] [RunAfter] Recognized operation=FileDelete" "!T46_VALID_REPORT_PATH!" >nul 2>&1
+                        if not errorlevel 1 set "T46_OPERATIONS_REPORT=PASS"
+                    )
                 )
             )
         )
@@ -3276,18 +3287,21 @@ if defined T46_VALID_REPORT_PATH if exist "!T46_VALID_REPORT_PATH!" (
 
 set "T46_INVALID_OPERATIONS=FAIL"
 if defined T46_INVALID_REPORT_PATH if exist "!T46_INVALID_REPORT_PATH!" (
-    findstr /x /c:"[FAIL] [Environment] Invalid variable name: BAD NAME" "!T46_INVALID_REPORT_PATH!" >nul 2>&1
+    findstr /x /c:"[PASS] [Environment] Variable name is accepted by Windows=BAD NAME" "!T46_INVALID_REPORT_PATH!" >nul 2>&1
     if not errorlevel 1 (
-        findstr /x /c:"[WARN] [Functions] Unknown operation FileCoppy; did you mean FileCopy?" "!T46_INVALID_REPORT_PATH!" >nul 2>&1
+        findstr /x /c:"[WARN] [Environment] EMPTY_VALUE has a blank value" "!T46_INVALID_REPORT_PATH!" >nul 2>&1
         if not errorlevel 1 (
-            findstr /x /c:"[FAIL] [Functions] DirCopy requires source and destination" "!T46_INVALID_REPORT_PATH!" >nul 2>&1
+            findstr /x /c:"[WARN] [Functions] Unknown operation FileCoppy; did you mean FileCopy?" "!T46_INVALID_REPORT_PATH!" >nul 2>&1
             if not errorlevel 1 (
-                findstr /b /c:"[FAIL] [FirstRunOperations] RunFile target does not exist:" "!T46_INVALID_REPORT_PATH!" >nul 2>&1
+                findstr /x /c:"[FAIL] [Functions] DirCopy requires source and destination" "!T46_INVALID_REPORT_PATH!" >nul 2>&1
                 if not errorlevel 1 (
-                    findstr /b /c:"[FAIL] [RunBefore] REG file does not exist:" "!T46_INVALID_REPORT_PATH!" >nul 2>&1
+                    findstr /b /c:"[FAIL] [FirstRunOperations] RunFile target does not exist=" "!T46_INVALID_REPORT_PATH!" >nul 2>&1
                     if not errorlevel 1 (
-                        findstr /x /c:"[WARN] [RunAfter] Unknown operation RunFiel; did you mean RunFile?" "!T46_INVALID_REPORT_PATH!" >nul 2>&1
-                        if not errorlevel 1 set "T46_INVALID_OPERATIONS=PASS"
+                        findstr /b /c:"[FAIL] [RunBefore] REG file does not exist=" "!T46_INVALID_REPORT_PATH!" >nul 2>&1
+                        if not errorlevel 1 (
+                            findstr /x /c:"[WARN] [RunAfter] Unknown operation RunFiel; did you mean RunFile?" "!T46_INVALID_REPORT_PATH!" >nul 2>&1
+                            if not errorlevel 1 set "T46_INVALID_OPERATIONS=PASS"
+                        )
                     )
                 )
             )
@@ -3295,21 +3309,40 @@ if defined T46_INVALID_REPORT_PATH if exist "!T46_INVALID_REPORT_PATH!" (
     )
 )
 
+set "T46_DIRREMOVE_REPORT=FAIL"
+if defined T46_VALID_REPORT_PATH if exist "!T46_VALID_REPORT_PATH!" if defined T46_INVALID_REPORT_PATH if exist "!T46_INVALID_REPORT_PATH!" (
+	set "T46_DIRREMOVE_REPORT=PASS"
+	findstr /x /c:"[PASS] [Functions] DirRemove has no flag and will recursively remove populated directories" "!T46_VALID_REPORT_PATH!" >nul 2>&1
+	if errorlevel 1 set "T46_DIRREMOVE_REPORT=FAIL"
+	findstr /x /c:"[PASS] [Functions] DirRemove e flag will remove only empty directories recursively" "!T46_VALID_REPORT_PATH!" >nul 2>&1
+	if errorlevel 1 set "T46_DIRREMOVE_REPORT=FAIL"
+	findstr /x /c:"[FAIL] [RunAfter] DirRemove flag is invalid; omit it to recursively remove populated directories or use e to remove only empty directories=o" "!T46_INVALID_REPORT_PATH!" >nul 2>&1
+	if errorlevel 1 set "T46_DIRREMOVE_REPORT=FAIL"
+	findstr /b /c:"[NOT USED] [Functions] DirRemove target is already absent; runtime cleanup is not needed=" "!T46_VALID_REPORT_PATH!" >nul 2>&1
+	if errorlevel 1 set "T46_DIRREMOVE_REPORT=FAIL"
+	findstr /b /c:"[NOT USED] [FirstRunOperations] DirRemove target is already absent; runtime cleanup is not needed=" "!T46_VALID_REPORT_PATH!" >nul 2>&1
+	if errorlevel 1 set "T46_DIRREMOVE_REPORT=FAIL"
+	findstr /b /c:"[NOT USED] [RunAfter] DirRemove target is already absent; runtime cleanup is not needed=" "!T46_VALID_REPORT_PATH!" >nul 2>&1
+	if errorlevel 1 set "T46_DIRREMOVE_REPORT=FAIL"
+	findstr /l /b /c:"[FAIL] [Functions] DirRemove source does not exist=" /c:"[FAIL] [FirstRunOperations] DirRemove source does not exist=" /c:"[FAIL] [RunAfter] DirRemove source does not exist=" "!T46_VALID_REPORT_PATH!" >nul 2>&1
+	if not errorlevel 1 set "T46_DIRREMOVE_REPORT=FAIL"
+)
+
 set "T46_DYNAMIC_REPORT=FAIL"
 if defined T46_VALID_REPORT_PATH if exist "!T46_VALID_REPORT_PATH!" (
-    findstr /x /c:"[PASS] [StringReplace] Target pattern matched existing files: 2" "!T46_VALID_REPORT_PATH!" >nul 2>&1
+    findstr /x /c:"[PASS] [StringReplace] Target pattern matched existing files=2" "!T46_VALID_REPORT_PATH!" >nul 2>&1
     if not errorlevel 1 (
-        findstr /x /c:"[PASS] [StringReplace] Delimiter structure is valid: BEGIN|END" "!T46_VALID_REPORT_PATH!" >nul 2>&1
+        findstr /x /c:"[PASS] [StringReplace] Delimiter structure is valid=BEGIN|END" "!T46_VALID_REPORT_PATH!" >nul 2>&1
         if not errorlevel 1 (
-            findstr /x /c:"[PASS] [StringRegExpReplace] Regular expression pattern compiles without changing files: ~|1" "!T46_VALID_REPORT_PATH!" >nul 2>&1
+            findstr /x /c:"[PASS] [StringRegExpReplace] Regular expression pattern compiles without changing files=~|1" "!T46_VALID_REPORT_PATH!" >nul 2>&1
             if not errorlevel 1 (
-                findstr /x /c:"[PASS] [WriteToFile] Line selector is valid: Line1" "!T46_VALID_REPORT_PATH!" >nul 2>&1
+                findstr /x /c:"[PASS] [WriteToFile] Line selector is valid=Line1" "!T46_VALID_REPORT_PATH!" >nul 2>&1
                 if not errorlevel 1 (
-                    findstr /x /c:"[PASS] [WriteToIni] Section and key names are valid: Probe|State" "!T46_VALID_REPORT_PATH!" >nul 2>&1
+                    findstr /x /c:"[PASS] [WriteToIni] Section and key names are valid=Probe|State" "!T46_VALID_REPORT_PATH!" >nul 2>&1
                     if not errorlevel 1 (
                         findstr /x /c:"[PASS] [WriteToPref] Format contains [PREF] and [VALUE] in the required order" "!T46_VALID_REPORT_PATH!" >nul 2>&1
                         if not errorlevel 1 (
-                            findstr /b /c:"[PASS] [WriteToReg] MainKey uses a supported registry root:" "!T46_VALID_REPORT_PATH!" >nul 2>&1
+                            findstr /b /c:"[PASS] [WriteToReg] MainKey uses a supported registry root=" "!T46_VALID_REPORT_PATH!" >nul 2>&1
                             if not errorlevel 1 set "T46_DYNAMIC_REPORT=PASS"
                         )
                     )
@@ -3321,19 +3354,19 @@ if defined T46_VALID_REPORT_PATH if exist "!T46_VALID_REPORT_PATH!" (
 
 set "T46_INVALID_DYNAMIC=FAIL"
 if defined T46_INVALID_REPORT_PATH if exist "!T46_INVALID_REPORT_PATH!" (
-    findstr /b /c:"[FAIL] [StringReplace] Target pattern did not match an existing file:" "!T46_INVALID_REPORT_PATH!" >nul 2>&1
+    findstr /b /c:"[FAIL] [StringReplace] Target pattern did not match an existing file=" "!T46_INVALID_REPORT_PATH!" >nul 2>&1
     if not errorlevel 1 (
-        findstr /b /c:"[FAIL] [StringReplace] Key must contain nonblank begin and end delimiters:" "!T46_INVALID_REPORT_PATH!" >nul 2>&1
+        findstr /b /c:"[FAIL] [StringReplace] Key must contain nonblank begin and end delimiters=" "!T46_INVALID_REPORT_PATH!" >nul 2>&1
         if not errorlevel 1 (
-            findstr /x /c:"[FAIL] [StringRegExpReplace] Counter must be an integer: notnumber" "!T46_INVALID_REPORT_PATH!" >nul 2>&1
+            findstr /x /c:"[FAIL] [StringRegExpReplace] Counter must be an integer=notnumber" "!T46_INVALID_REPORT_PATH!" >nul 2>&1
             if not errorlevel 1 (
-                findstr /b /c:"[FAIL] [StringRegExpReplace] Regular expression pattern does not compile:" "!T46_INVALID_REPORT_PATH!" >nul 2>&1
+                findstr /b /c:"[FAIL] [StringRegExpReplace] Regular expression pattern does not compile=" "!T46_INVALID_REPORT_PATH!" >nul 2>&1
                 if not errorlevel 1 (
-                    findstr /b /c:"[FAIL] [WriteToFile] Line selector must be EOF or Line followed by a positive integer:" "!T46_INVALID_REPORT_PATH!" >nul 2>&1
+                    findstr /b /c:"[FAIL] [WriteToFile] Line selector must be EOF or Line followed by a positive integer=" "!T46_INVALID_REPORT_PATH!" >nul 2>&1
                     if not errorlevel 1 (
-                        findstr /b /c:"[FAIL] [WriteToIni] Key must contain nonblank section and key names:" "!T46_INVALID_REPORT_PATH!" >nul 2>&1
+                        findstr /b /c:"[FAIL] [WriteToIni] Key must contain nonblank section and key names=" "!T46_INVALID_REPORT_PATH!" >nul 2>&1
                         if not errorlevel 1 (
-                            findstr /b /c:"[FAIL] [WriteToPref] Format must contain [PREF] followed by [VALUE]:" "!T46_INVALID_REPORT_PATH!" >nul 2>&1
+                            findstr /b /c:"[FAIL] [WriteToPref] Format must contain [PREF] followed by [VALUE]=" "!T46_INVALID_REPORT_PATH!" >nul 2>&1
                             if not errorlevel 1 (
                                 findstr /x /c:"[FAIL] [WriteToReg] First entry must be MainKey" "!T46_INVALID_REPORT_PATH!" >nul 2>&1
                                 if not errorlevel 1 set "T46_INVALID_DYNAMIC=PASS"
@@ -3348,11 +3381,11 @@ if defined T46_INVALID_REPORT_PATH if exist "!T46_INVALID_REPORT_PATH!" (
 
 set "T46_JAVA_REPORT=FAIL"
 if defined T46_VALID_REPORT_PATH if exist "!T46_VALID_REPORT_PATH!" (
-    findstr /b /c:"[PASS] [Java] Portable Java runtime is usable and has first priority:" "!T46_VALID_REPORT_PATH!" >nul 2>&1
+    findstr /b /c:"[PASS] [Java] Portable Java runtime is usable and has first priority=" "!T46_VALID_REPORT_PATH!" >nul 2>&1
     if not errorlevel 1 (
-        findstr /b /c:"[PASS] [Java] Java ZIP setup package is recognized without installation:" "!T46_VALID_REPORT_PATH!" >nul 2>&1
+        findstr /b /c:"[PASS] [Java] Java ZIP setup package is recognized without installation=" "!T46_VALID_REPORT_PATH!" >nul 2>&1
         if not errorlevel 1 (
-            findstr /b /c:"[PASS] [Java] JavaURL is a valid direct HTTP or HTTPS source; no download was performed:" "!T46_VALID_REPORT_PATH!" >nul 2>&1
+            findstr /b /c:"[PASS] [Java] JavaURL is a valid direct HTTP or HTTPS source; no download was performed=" "!T46_VALID_REPORT_PATH!" >nul 2>&1
             if not errorlevel 1 (
                 findstr /x /c:"[PASS] [Java] Required Java has an available source; no download or installation was performed" "!T46_VALID_REPORT_PATH!" >nul 2>&1
                 if not errorlevel 1 set "T46_JAVA_REPORT=PASS"
@@ -3363,15 +3396,21 @@ if defined T46_VALID_REPORT_PATH if exist "!T46_VALID_REPORT_PATH!" (
 
 set "T46_INVALID_JAVA=FAIL"
 if defined T46_INVALID_REPORT_PATH if exist "!T46_INVALID_REPORT_PATH!" (
-    findstr /b /c:"[FAIL] [Java] Legacy Java EXE setup package does not have an MZ header:" "!T46_INVALID_REPORT_PATH!" >nul 2>&1
+    findstr /b /c:"[FAIL] [Java] Legacy Java EXE setup package does not have an MZ header=" "!T46_INVALID_REPORT_PATH!" >nul 2>&1
     if not errorlevel 1 (
-        findstr /x /c:"[FAIL] [Java] JavaURL must be a direct HTTP or HTTPS package URL: ftp://example.invalid/java-runtime.zip" "!T46_INVALID_REPORT_PATH!" >nul 2>&1
+        findstr /x /c:"[FAIL] [Java] JavaURL must be a direct HTTP or HTTPS package URL=ftp://example.invalid/java-runtime.zip" "!T46_INVALID_REPORT_PATH!" >nul 2>&1
         if not errorlevel 1 set "T46_INVALID_JAVA=PASS"
     )
 )
 
+set "T46_ATTENTION_SUMMARY=FAIL"
+if defined T46_INVALID_REPORT_PATH if exist "!T46_INVALID_REPORT_PATH!" (
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File "Helpers\Test46_ProbeAttentionSummary_Check.ps1" "!T46_INVALID_REPORT_PATH!" >nul 2>&1
+    if not errorlevel 1 set "T46_ATTENTION_SUMMARY=PASS"
+)
+
 set "T46=FAIL"
-if "!T46_VALID_CODE!"=="PASS" if "!T46_INVALID_CODE!"=="PASS" if "!T46_NO_LAUNCH!"=="PASS" if "!T46_INI_SAFE!"=="PASS" if "!T46_FILES_SAFE!"=="PASS" if "!T46_JAVA_SAFE!"=="PASS" if "!T46_REG_SAFE!"=="PASS" if "!T46_REPORT!"=="PASS" if "!T46_INVALID_REPORT!"=="PASS" if "!T46_OPERATIONS_REPORT!"=="PASS" if "!T46_INVALID_OPERATIONS!"=="PASS" if "!T46_DYNAMIC_REPORT!"=="PASS" if "!T46_INVALID_DYNAMIC!"=="PASS" if "!T46_JAVA_REPORT!"=="PASS" if "!T46_INVALID_JAVA!"=="PASS" set "T46=PASS"
+if "!T46_VALID_CODE!"=="PASS" if "!T46_INVALID_CODE!"=="PASS" if "!T46_NO_LAUNCH!"=="PASS" if "!T46_INI_SAFE!"=="PASS" if "!T46_FILES_SAFE!"=="PASS" if "!T46_JAVA_SAFE!"=="PASS" if "!T46_REG_SAFE!"=="PASS" if "!T46_REPORT!"=="PASS" if "!T46_INVALID_REPORT!"=="PASS" if "!T46_OPERATIONS_REPORT!"=="PASS" if "!T46_INVALID_OPERATIONS!"=="PASS" if "!T46_DIRREMOVE_REPORT!"=="PASS" if "!T46_DYNAMIC_REPORT!"=="PASS" if "!T46_INVALID_DYNAMIC!"=="PASS" if "!T46_JAVA_REPORT!"=="PASS" if "!T46_INVALID_JAVA!"=="PASS" if "!T46_ATTENTION_SUMMARY!"=="PASS" if "!T46_REPORT_EXTENSION!"=="PASS" set "T46=PASS"
 
 if "!T46!"=="PASS" (
     set /a PASSCOUNT+=1
@@ -3451,42 +3490,42 @@ set "T47_DEFAULT_REPORT_PATH="
 set "T47_MISSING_REPORT_PATH="
 set "T47_INVALID_REPORT_PATH="
 set "T47_ENV_REPORT_PATH="
-for %%F in ("Working\Test47\Macro\Launcher\Diagnostics\*.txt") do set "T47_MACRO_REPORT_PATH=%%~fF"
-for %%F in ("Working\Test47\Default\Launcher\Diagnostics\*.txt") do set "T47_DEFAULT_REPORT_PATH=%%~fF"
-for %%F in ("Working\Test47\Missing\Launcher\Diagnostics\*.txt") do set "T47_MISSING_REPORT_PATH=%%~fF"
-for %%F in ("Working\Test47\Invalid\Launcher\Diagnostics\*.txt") do set "T47_INVALID_REPORT_PATH=%%~fF"
-for %%F in ("Working\Test47\Environment\Launcher\Diagnostics\*.txt") do set "T47_ENV_REPORT_PATH=%%~fF"
+for %%F in ("Working\Test47\Macro\Launcher\Diagnostics\*.txt" "Working\Test47\Macro\Launcher\Diagnostics\*.log") do if exist "%%~fF" set "T47_MACRO_REPORT_PATH=%%~fF"
+for %%F in ("Working\Test47\Default\Launcher\Diagnostics\*.txt" "Working\Test47\Default\Launcher\Diagnostics\*.log") do if exist "%%~fF" set "T47_DEFAULT_REPORT_PATH=%%~fF"
+for %%F in ("Working\Test47\Missing\Launcher\Diagnostics\*.txt" "Working\Test47\Missing\Launcher\Diagnostics\*.log") do if exist "%%~fF" set "T47_MISSING_REPORT_PATH=%%~fF"
+for %%F in ("Working\Test47\Invalid\Launcher\Diagnostics\*.txt" "Working\Test47\Invalid\Launcher\Diagnostics\*.log") do if exist "%%~fF" set "T47_INVALID_REPORT_PATH=%%~fF"
+for %%F in ("Working\Test47\Environment\Launcher\Diagnostics\*.txt" "Working\Test47\Environment\Launcher\Diagnostics\*.log") do if exist "%%~fF" set "T47_ENV_REPORT_PATH=%%~fF"
 
 set "T47_EXITS=FAIL"
 if "!T47_MACRO_EXIT!"=="0" if "!T47_DEFAULT_EXIT!"=="0" if "!T47_MISSING_EXIT!"=="0" if "!T47_INVALID_EXIT!"=="0" if "!T47_ENV_EXIT!"=="0" set "T47_EXITS=PASS"
 
 set "T47_MACRO=FAIL"
 if defined T47_MACRO_REPORT_PATH (
-    findstr /b /c:"[PASS] [Process Monitor] ProcMonPath resolved from the configured folder:" "!T47_MACRO_REPORT_PATH!" >nul 2>&1
+    findstr /b /c:"[PASS] [Process Monitor] ProcMonPath resolved from the configured folder=" "!T47_MACRO_REPORT_PATH!" >nul 2>&1
     if not errorlevel 1 set "T47_MACRO=PASS"
 )
 
 set "T47_DEFAULT=FAIL"
 if defined T47_DEFAULT_REPORT_PATH (
-    findstr /b /c:"[PASS] [Process Monitor] Default ProcMon executable was found:" "!T47_DEFAULT_REPORT_PATH!" >nul 2>&1
+    findstr /b /c:"[PASS] [Process Monitor] Default ProcMon executable was found=" "!T47_DEFAULT_REPORT_PATH!" >nul 2>&1
     if not errorlevel 1 set "T47_DEFAULT=PASS"
 )
 
 set "T47_MISSING=FAIL"
 if defined T47_MISSING_REPORT_PATH (
-    findstr /b /c:"[WARN] [Process Monitor] ProcMonPath does not exist; Application Trace will be unavailable:" "!T47_MISSING_REPORT_PATH!" >nul 2>&1
+    findstr /b /c:"[WARN] [Process Monitor] ProcMonPath does not exist; Application Trace will be unavailable=" "!T47_MISSING_REPORT_PATH!" >nul 2>&1
     if not errorlevel 1 set "T47_MISSING=PASS"
 )
 
 set "T47_INVALID=FAIL"
 if defined T47_INVALID_REPORT_PATH (
-    findstr /b /c:"[WARN] [Process Monitor] ProcMonPath file name is not supported; use Procmon.exe, Procmon64.exe or Procmon64a.exe:" "!T47_INVALID_REPORT_PATH!" >nul 2>&1
+    findstr /b /c:"[WARN] [Process Monitor] ProcMonPath file name is not supported; use Procmon.exe, Procmon64.exe or Procmon64a.exe=" "!T47_INVALID_REPORT_PATH!" >nul 2>&1
     if not errorlevel 1 set "T47_INVALID=PASS"
 )
 
 set "T47_ENV=FAIL"
 if defined T47_ENV_REPORT_PATH (
-    findstr /b /c:"[PASS] [Process Monitor] ProcMonPath resolved to an executable:" "!T47_ENV_REPORT_PATH!" >nul 2>&1
+    findstr /b /c:"[PASS] [Process Monitor] ProcMonPath resolved to an executable=" "!T47_ENV_REPORT_PATH!" >nul 2>&1
     if not errorlevel 1 set "T47_ENV=PASS"
 )
 
@@ -3521,21 +3560,21 @@ set "T47_HELPER_INVALID=FAIL"
 set "T47_HELPER_MISSING=FAIL"
 set "T47_UNC=FAIL"
 set "T47_READONLY=FAIL"
-findstr /x /c:"Absolute ProcMon executable resolves: PASS" "Working\Test47\Helper.log" >nul 2>&1
+findstr /x /c:"Absolute ProcMon executable resolves=PASS" "Working\Test47\Helper.log" >nul 2>&1
 if not errorlevel 1 set "T47_ABSOLUTE=PASS"
-findstr /x /c:"Relative ProcMon path resolves against Root: PASS" "Working\Test47\Helper.log" >nul 2>&1
+findstr /x /c:"Relative ProcMon path resolves against Root=PASS" "Working\Test47\Helper.log" >nul 2>&1
 if not errorlevel 1 set "T47_RELATIVE=PASS"
-findstr /x /c:"ProcMon folder selects a supported executable: PASS" "Working\Test47\Helper.log" >nul 2>&1
+findstr /x /c:"ProcMon folder selects a supported executable=PASS" "Working\Test47\Helper.log" >nul 2>&1
 if not errorlevel 1 set "T47_FOLDER=PASS"
-findstr /x /c:"Blank ProcMonPath checks the documented default: PASS" "Working\Test47\Helper.log" >nul 2>&1
+findstr /x /c:"Blank ProcMonPath checks the documented default=PASS" "Working\Test47\Helper.log" >nul 2>&1
 if not errorlevel 1 set "T47_HELPER_DEFAULT=PASS"
-findstr /x /c:"Unexpected executable name is rejected: PASS" "Working\Test47\Helper.log" >nul 2>&1
+findstr /x /c:"Unexpected executable name is rejected=PASS" "Working\Test47\Helper.log" >nul 2>&1
 if not errorlevel 1 set "T47_HELPER_INVALID=PASS"
-findstr /x /c:"Missing configured ProcMon path is reported: PASS" "Working\Test47\Helper.log" >nul 2>&1
+findstr /x /c:"Missing configured ProcMon path is reported=PASS" "Working\Test47\Helper.log" >nul 2>&1
 if not errorlevel 1 set "T47_HELPER_MISSING=PASS"
-findstr /x /c:"UNC ProcMon path prefix is preserved: PASS" "Working\Test47\Helper.log" >nul 2>&1
+findstr /x /c:"UNC ProcMon path prefix is preserved=PASS" "Working\Test47\Helper.log" >nul 2>&1
 if not errorlevel 1 set "T47_UNC=PASS"
-findstr /x /c:"Resolver performs no launch download or EULA action: PASS" "Working\Test47\Helper.log" >nul 2>&1
+findstr /x /c:"Resolver performs no launch download or EULA action=PASS" "Working\Test47\Helper.log" >nul 2>&1
 if not errorlevel 1 set "T47_READONLY=PASS"
 
 set "T47=FAIL"
@@ -3585,44 +3624,47 @@ set "T48_MISSING=FAIL"
 set "T48_UNIQUE=FAIL"
 set "T48_PIDWAIT=FAIL"
 set "T48_ARGS=FAIL"
+set "T48_AUTO_OPEN=FAIL"
 
-findstr /x /c:"Trace summary contains required metadata categories totals privacy and ordered detail: PASS" "Working\Test48\Helper.log" >nul 2>&1
+findstr /x /c:"Trace summary contains required metadata categories totals privacy and ordered detail=PASS" "Working\Test48\Helper.log" >nul 2>&1
 if not errorlevel 1 set "T48_REPORT=PASS"
-findstr /x /c:"Trace file category includes directory creation and file operations: PASS" "Working\Test48\Helper.log" >nul 2>&1
+findstr /x /c:"Trace file category includes directory creation and file operations=PASS" "Working\Test48\Helper.log" >nul 2>&1
 if not errorlevel 1 set "T48_FILE_CATEGORY=PASS"
-findstr /x /c:"Trace retained process handle records the real application exit code: PASS" "Working\Test48\Helper.log" >nul 2>&1
+findstr /x /c:"Trace retained process handle records the real application exit code=PASS" "Working\Test48\Helper.log" >nul 2>&1
 if not errorlevel 1 set "T48_EXITCODE=PASS"
-findstr /x /c:"Trace summary records launcher application and observed child process details: PASS" "Working\Test48\Helper.log" >nul 2>&1
+findstr /x /c:"Trace summary records launcher application and observed child process details=PASS" "Working\Test48\Helper.log" >nul 2>&1
 if not errorlevel 1 set "T48_PROCESS=PASS"
-findstr /x /c:"Trace finalization guard prevents report overwrite: PASS" "Working\Test48\Helper.log" >nul 2>&1
+findstr /x /c:"Trace finalization guard prevents report overwrite=PASS" "Working\Test48\Helper.log" >nul 2>&1
 if not errorlevel 1 set "T48_FINALIZE=PASS"
-findstr /x /c:"Confirmed Trace route continues into the real launcher lifecycle: PASS" "Working\Test48\Helper.log" >nul 2>&1
+findstr /x /c:"Confirmed Trace route continues into the real launcher lifecycle=PASS" "Working\Test48\Helper.log" >nul 2>&1
 if not errorlevel 1 set "T48_ROUTE=PASS"
-findstr /x /c:"Application Trace never downloads Process Monitor or accepts its EULA automatically: PASS" "Working\Test48\Helper.log" >nul 2>&1
+findstr /x /c:"Application Trace never downloads Process Monitor or accepts its EULA automatically=PASS" "Working\Test48\Helper.log" >nul 2>&1
 if not errorlevel 1 set "T48_NO_PROCMON=PASS"
-findstr /x /c:"Process Monitor capture start and stop explicitly request Windows elevation: PASS" "Working\Test48\Helper.log" >nul 2>&1
+findstr /x /c:"Process Monitor capture start and stop explicitly request Windows elevation=PASS" "Working\Test48\Helper.log" >nul 2>&1
 if not errorlevel 1 set "T48_PROCMON_ELEVATION=PASS"
-findstr /x /c:"Process Monitor capture uses verified backing-file and terminate switches: PASS" "Working\Test48\Helper.log" >nul 2>&1
+findstr /x /c:"Process Monitor capture uses verified backing-file and terminate switches=PASS" "Working\Test48\Helper.log" >nul 2>&1
 if not errorlevel 1 set "T48_PROCMON_COMMANDS=PASS"
-findstr /x /c:"Process Monitor startup preserves the full elevation and licence prompt allowance: PASS" "Working\Test48\Helper.log" >nul 2>&1
+findstr /x /c:"Process Monitor startup preserves the full elevation and licence prompt allowance=PASS" "Working\Test48\Helper.log" >nul 2>&1
 if not errorlevel 1 set "T48_PROCMON_PROMPT_WAIT=PASS"
-findstr /x /c:"Process Monitor storage safeguards enforce maximum size and reserved free space: PASS" "Working\Test48\Helper.log" >nul 2>&1
+findstr /x /c:"Process Monitor storage safeguards enforce maximum size and reserved free space=PASS" "Working\Test48\Helper.log" >nul 2>&1
 if not errorlevel 1 set "T48_PROCMON_LIMITS=PASS"
-findstr /x /c:"Trace finalization stops Process Monitor after cleanup and preserves the native PML path: PASS" "Working\Test48\Helper.log" >nul 2>&1
+findstr /x /c:"Trace finalization stops Process Monitor after cleanup and preserves the native PML path=PASS" "Working\Test48\Helper.log" >nul 2>&1
 if not errorlevel 1 set "T48_PROCMON_STOP=PASS"
-findstr /x /c:"Trace session end is recorded after native Process Monitor finalization: PASS" "Working\Test48\Helper.log" >nul 2>&1
+findstr /x /c:"Trace session end is recorded after native Process Monitor finalization=PASS" "Working\Test48\Helper.log" >nul 2>&1
 if not errorlevel 1 set "T48_SESSION_END=PASS"
-findstr /x /c:"Missing Process Monitor offers X-Launcher-only logging or Cancel: PASS" "Working\Test48\Helper.log" >nul 2>&1
+findstr /x /c:"Missing Process Monitor offers X-Launcher-only logging or Cancel=PASS" "Working\Test48\Helper.log" >nul 2>&1
 if not errorlevel 1 set "T48_MISSING=PASS"
-findstr /x /c:"Trace creates a unique application diagnostics session folder: PASS" "Working\Test48\Helper.log" >nul 2>&1
+findstr /x /c:"Trace creates a unique application diagnostics session folder=PASS" "Working\Test48\Helper.log" >nul 2>&1
 if not errorlevel 1 set "T48_UNIQUE=PASS"
-findstr /x /c:"Trace records application PID while retaining waited completion: PASS" "Working\Test48\Helper.log" >nul 2>&1
+findstr /x /c:"Trace records application PID while retaining waited completion=PASS" "Working\Test48\Helper.log" >nul 2>&1
 if not errorlevel 1 set "T48_PIDWAIT=PASS"
-findstr /x /c:"Internal diagnostic switches are not forwarded to the configured payload: PASS" "Working\Test48\Helper.log" >nul 2>&1
+findstr /x /c:"Internal diagnostic switches are not forwarded to the configured payload=PASS" "Working\Test48\Helper.log" >nul 2>&1
 if not errorlevel 1 set "T48_ARGS=PASS"
+findstr /x /c:"Completed portability analysis opens its report with Trace Summary fallback=PASS" "Working\Test48\Helper.log" >nul 2>&1
+if not errorlevel 1 set "T48_AUTO_OPEN=PASS"
 
 set "T48=FAIL"
-if "!T48_REPORT!"=="PASS" if "!T48_FILE_CATEGORY!"=="PASS" if "!T48_EXITCODE!"=="PASS" if "!T48_PROCESS!"=="PASS" if "!T48_FINALIZE!"=="PASS" if "!T48_ROUTE!"=="PASS" if "!T48_NO_PROCMON!"=="PASS" if "!T48_PROCMON_ELEVATION!"=="PASS" if "!T48_PROCMON_COMMANDS!"=="PASS" if "!T48_PROCMON_PROMPT_WAIT!"=="PASS" if "!T48_PROCMON_LIMITS!"=="PASS" if "!T48_PROCMON_STOP!"=="PASS" if "!T48_SESSION_END!"=="PASS" if "!T48_MISSING!"=="PASS" if "!T48_UNIQUE!"=="PASS" if "!T48_PIDWAIT!"=="PASS" if "!T48_ARGS!"=="PASS" if "!T48_HELPER_EXIT!"=="0" set "T48=PASS"
+if "!T48_REPORT!"=="PASS" if "!T48_FILE_CATEGORY!"=="PASS" if "!T48_EXITCODE!"=="PASS" if "!T48_PROCESS!"=="PASS" if "!T48_FINALIZE!"=="PASS" if "!T48_ROUTE!"=="PASS" if "!T48_NO_PROCMON!"=="PASS" if "!T48_PROCMON_ELEVATION!"=="PASS" if "!T48_PROCMON_COMMANDS!"=="PASS" if "!T48_PROCMON_PROMPT_WAIT!"=="PASS" if "!T48_PROCMON_LIMITS!"=="PASS" if "!T48_PROCMON_STOP!"=="PASS" if "!T48_SESSION_END!"=="PASS" if "!T48_MISSING!"=="PASS" if "!T48_UNIQUE!"=="PASS" if "!T48_PIDWAIT!"=="PASS" if "!T48_ARGS!"=="PASS" if "!T48_AUTO_OPEN!"=="PASS" if "!T48_HELPER_EXIT!"=="0" set "T48=PASS"
 
 if "!T48!"=="PASS" (
     set /a PASSCOUNT+=1
@@ -3662,31 +3704,34 @@ set "T48B_ATTRIBUTION=FAIL"
 set "T48B_MANAGED=FAIL"
 set "T48B_UNMANAGED=FAIL"
 set "T48B_DISCLOSURE=FAIL"
-findstr /x /c:"ProcMon XML process index maps to PID and canonical parser input: PASS" "Working\Test48B\Helper.log" >nul 2>&1
+set "T48B_FORMAT=FAIL"
+findstr /x /c:"ProcMon XML process index maps to PID and canonical parser input=PASS" "Working\Test48B\Helper.log" >nul 2>&1
 if not errorlevel 1 set "T48B_XML=PASS"
-findstr /x /c:"Automatic ProcMon write filter is generated loaded and applied without INI changes: PASS" "Working\Test48B\Helper.log" >nul 2>&1
+findstr /x /c:"Automatic ProcMon write filter is generated loaded and applied without INI changes=PASS" "Working\Test48B\Helper.log" >nul 2>&1
 if not errorlevel 1 set "T48B_FILTER=PASS"
-findstr /x /c:"Fast canonical CSV parser retains commas and escaped quotes: PASS" "Working\Test48B\Helper.log" >nul 2>&1
+findstr /x /c:"Fast canonical CSV parser retains commas and escaped quotes=PASS" "Working\Test48B\Helper.log" >nul 2>&1
 if not errorlevel 1 set "T48B_FASTCSV=PASS"
-findstr /x /c:"Indexed repeated-target collapse avoids linear report growth: PASS" "Working\Test48B\Helper.log" >nul 2>&1
+findstr /x /c:"Indexed repeated-target collapse avoids linear report growth=PASS" "Working\Test48B\Helper.log" >nul 2>&1
 if not errorlevel 1 set "T48B_INDEXED=PASS"
-findstr /x /c:"Direct REG parser extracts the portable top-level registry root: PASS" "Working\Test48B\Helper.log" >nul 2>&1
+findstr /x /c:"Direct REG parser extracts the portable top-level registry root=PASS" "Working\Test48B\Helper.log" >nul 2>&1
 if not errorlevel 1 set "T48B_REGPARSER=PASS"
-findstr /x /c:"Readable portability report is created from exported Process Monitor CSV: PASS" "Working\Test48B\Helper.log" >nul 2>&1
+findstr /x /c:"Readable portability report is created from exported Process Monitor CSV=PASS" "Working\Test48B\Helper.log" >nul 2>&1
 if not errorlevel 1 set "T48B_CREATED=PASS"
-findstr /x /c:"Repeated low-level file events collapse into unique target counts: PASS" "Working\Test48B\Helper.log" >nul 2>&1
+findstr /x /c:"Repeated low-level file events collapse into unique target counts=PASS" "Working\Test48B\Helper.log" >nul 2>&1
 if not errorlevel 1 set "T48B_COLLAPSE=PASS"
-findstr /x /c:"Application child PID activity is attributed and unrelated PID activity is excluded: PASS" "Working\Test48B\Helper.log" >nul 2>&1
+findstr /x /c:"Application child PID activity is attributed and unrelated PID activity is excluded=PASS" "Working\Test48B\Helper.log" >nul 2>&1
 if not errorlevel 1 set "T48B_ATTRIBUTION=PASS"
-findstr /x /c:"Current INI file and registry rules classify external targets as managed: PASS" "Working\Test48B\Helper.log" >nul 2>&1
+findstr /x /c:"Current INI file and registry rules classify external targets as managed=PASS" "Working\Test48B\Helper.log" >nul 2>&1
 if not errorlevel 1 set "T48B_MANAGED=PASS"
-findstr /x /c:"Unmanaged file and registry writes remain visible for user review: PASS" "Working\Test48B\Helper.log" >nul 2>&1
+findstr /x /c:"Unmanaged file and registry writes remain visible for user review=PASS" "Working\Test48B\Helper.log" >nul 2>&1
 if not errorlevel 1 set "T48B_UNMANAGED=PASS"
-findstr /x /c:"Relevant failures state limitations residue and privacy are explicit: PASS" "Working\Test48B\Helper.log" >nul 2>&1
+findstr /x /c:"Relevant failures state limitations residue and privacy are explicit=PASS" "Working\Test48B\Helper.log" >nul 2>&1
 if not errorlevel 1 set "T48B_DISCLOSURE=PASS"
+findstr /x /c:"Portability report uses equals separators for readable key-value fields=PASS" "Working\Test48B\Helper.log" >nul 2>&1
+if not errorlevel 1 set "T48B_FORMAT=PASS"
 
 set "T48B=FAIL"
-if "!T48B_XML!"=="PASS" if "!T48B_FILTER!"=="PASS" if "!T48B_FASTCSV!"=="PASS" if "!T48B_INDEXED!"=="PASS" if "!T48B_REGPARSER!"=="PASS" if "!T48B_CREATED!"=="PASS" if "!T48B_COLLAPSE!"=="PASS" if "!T48B_ATTRIBUTION!"=="PASS" if "!T48B_MANAGED!"=="PASS" if "!T48B_UNMANAGED!"=="PASS" if "!T48B_DISCLOSURE!"=="PASS" if "!T48B_HELPER_EXIT!"=="0" set "T48B=PASS"
+if "!T48B_XML!"=="PASS" if "!T48B_FILTER!"=="PASS" if "!T48B_FASTCSV!"=="PASS" if "!T48B_INDEXED!"=="PASS" if "!T48B_REGPARSER!"=="PASS" if "!T48B_CREATED!"=="PASS" if "!T48B_COLLAPSE!"=="PASS" if "!T48B_ATTRIBUTION!"=="PASS" if "!T48B_MANAGED!"=="PASS" if "!T48B_UNMANAGED!"=="PASS" if "!T48B_DISCLOSURE!"=="PASS" if "!T48B_FORMAT!"=="PASS" if "!T48B_HELPER_EXIT!"=="0" set "T48B=PASS"
 
 if "!T48B!"=="PASS" (
     set /a PASSCOUNT+=1
@@ -3714,16 +3759,16 @@ copy /y "Configs\48C_FileMove_Wildcard_No_Match.ini" "Working\Test48C\Launcher\4
 set "T48C_PROBE_EXIT=!ERRORLEVEL!"
 
 set "T48C_PROBE_REPORT_PATH="
-for %%F in ("Working\Test48C\Launcher\Diagnostics\48C_FileMove_Wildcard_No_Match_Configuration_Probe_*.txt") do set "T48C_PROBE_REPORT_PATH=%%~fF"
+for %%F in ("Working\Test48C\Launcher\Diagnostics\48C_FileMove_Wildcard_No_Match_Configuration_Probe_*.txt" "Working\Test48C\Launcher\Diagnostics\48C_FileMove_Wildcard_No_Match_Configuration_Probe_*.log") do if exist "%%~fF" set "T48C_PROBE_REPORT_PATH=%%~fF"
 
 set "T48C_PROBE_CODE=FAIL"
 set "T48C_PROBE_WILDCARD=FAIL"
 set "T48C_PROBE_EXACT=FAIL"
 if "!T48C_PROBE_EXIT!"=="10" set "T48C_PROBE_CODE=PASS"
 if defined T48C_PROBE_REPORT_PATH if exist "!T48C_PROBE_REPORT_PATH!" (
-    findstr /l /b /c:"[NOT USED] [RunAfter] FileMove wildcard source matched no files; runtime will skip this operation:" "!T48C_PROBE_REPORT_PATH!" | findstr /l /c:"StremioSetup-" >nul 2>&1
+    findstr /l /b /c:"[NOT USED] [RunAfter] FileMove wildcard source matched no files; runtime will skip this operation=" "!T48C_PROBE_REPORT_PATH!" | findstr /l /c:"StremioSetup-" >nul 2>&1
     if not errorlevel 1 set "T48C_PROBE_WILDCARD=PASS"
-    findstr /l /b /c:"[FAIL] [RunAfter] FileMove source does not exist:" "!T48C_PROBE_REPORT_PATH!" | findstr /l /c:"Required.exe" >nul 2>&1
+    findstr /l /b /c:"[FAIL] [RunAfter] FileMove source does not exist=" "!T48C_PROBE_REPORT_PATH!" | findstr /l /c:"Required.exe" >nul 2>&1
     if not errorlevel 1 set "T48C_PROBE_EXACT=PASS"
 )
 
@@ -3779,11 +3824,11 @@ copy /y "Configs\48D_Default_Continue.ini" "Working\Test48D\Default\Launcher\48D
 "Working\Test48D\Default\Launcher\X-Launcher_x64.exe" "--x-launcher-config=%CD%\Working\Test48D\Default\Launcher\48D_Default_Continue.ini" --x-launcher-test=probe --x-launcher-test-automated >nul 2>&1
 set "T48D_DEFAULT_PROBE_EXIT=!ERRORLEVEL!"
 set "T48D_DEFAULT_PROBE_PATH="
-for %%F in ("Working\Test48D\Default\Launcher\Diagnostics\48D_Default_Continue_Configuration_Probe_*.txt") do set "T48D_DEFAULT_PROBE_PATH=%%~fF"
+for %%F in ("Working\Test48D\Default\Launcher\Diagnostics\48D_Default_Continue_Configuration_Probe_*.txt" "Working\Test48D\Default\Launcher\Diagnostics\48D_Default_Continue_Configuration_Probe_*.log") do if exist "%%~fF" set "T48D_DEFAULT_PROBE_PATH=%%~fF"
 
 set "T48D_PROBE_DEFAULT=FAIL"
 if defined T48D_DEFAULT_PROBE_PATH if exist "!T48D_DEFAULT_PROBE_PATH!" (
-    findstr /l /x /c:"[NOT USED] [Options] RunAfterStopOnFailure is not configured; default applies: false" "!T48D_DEFAULT_PROBE_PATH!" >nul 2>&1
+    findstr /l /x /c:"[NOT USED] [Options] RunAfterStopOnFailure is not configured; default applies=false" "!T48D_DEFAULT_PROBE_PATH!" >nul 2>&1
     if not errorlevel 1 set "T48D_PROBE_DEFAULT=PASS"
 )
 
@@ -3824,7 +3869,7 @@ reg add "HKCU\Software\XLauncher_Test\RunAfterStop48D" /v State /t REG_SZ /d HOS
 "Working\Test48D\Stop\Launcher\X-Launcher_x64.exe" "--x-launcher-config=%CD%\Working\Test48D\Stop\Launcher\48D_Stop_On_Failure.ini" --x-launcher-test=probe --x-launcher-test-automated >nul 2>&1
 set "T48D_STOP_PROBE_EXIT=!ERRORLEVEL!"
 set "T48D_STOP_PROBE_PATH="
-for %%F in ("Working\Test48D\Stop\Launcher\Diagnostics\48D_Stop_On_Failure_Configuration_Probe_*.txt") do set "T48D_STOP_PROBE_PATH=%%~fF"
+for %%F in ("Working\Test48D\Stop\Launcher\Diagnostics\48D_Stop_On_Failure_Configuration_Probe_*.txt" "Working\Test48D\Stop\Launcher\Diagnostics\48D_Stop_On_Failure_Configuration_Probe_*.log") do if exist "%%~fF" set "T48D_STOP_PROBE_PATH=%%~fF"
 
 set "T48D_PROBE_CODE=FAIL"
 set "T48D_PROBE_TRUE=FAIL"
@@ -3832,9 +3877,9 @@ set "T48D_PROBE_KNOWN=FAIL"
 set "T48D_PROBE_REGISTRY=FAIL"
 if "!T48D_STOP_PROBE_EXIT!"=="10" set "T48D_PROBE_CODE=PASS"
 if defined T48D_STOP_PROBE_PATH if exist "!T48D_STOP_PROBE_PATH!" (
-    findstr /l /x /c:"[PASS] [Options] RunAfterStopOnFailure is a valid Boolean: true" "!T48D_STOP_PROBE_PATH!" >nul 2>&1
+    findstr /l /x /c:"[PASS] [Options] RunAfterStopOnFailure is a valid Boolean=true" "!T48D_STOP_PROBE_PATH!" >nul 2>&1
     if not errorlevel 1 set "T48D_PROBE_TRUE=PASS"
-    findstr /l /x /c:"[WARN] [Options] Unknown key: RunAfterStopOnFailure" "!T48D_STOP_PROBE_PATH!" >nul 2>&1
+    findstr /l /x /c:"[WARN] [Options] Unknown key=RunAfterStopOnFailure" "!T48D_STOP_PROBE_PATH!" >nul 2>&1
     if errorlevel 1 set "T48D_PROBE_KNOWN=PASS"
 )
 reg query "HKCU\Software\XLauncher_Test\RunAfterStop48D" /v State 2>nul | find /i "HOST" >nul
@@ -3921,15 +3966,15 @@ set "TMP=!T48E_HOST_TMP!"
 "Working\Test48E\Default\Launcher\X-Launcher_x64.exe" "--x-launcher-config=%CD%\Working\Test48E\Default\Launcher\48E_Portable_Environment_Default.ini" --x-launcher-test=probe --x-launcher-test-automated >nul 2>&1
 set "T48E_DEFAULT_PROBE_EXIT=!ERRORLEVEL!"
 set "T48E_DEFAULT_PROBE_PATH="
-for %%F in ("Working\Test48E\Default\Launcher\Diagnostics\48E_Portable_Environment_Default_Configuration_Probe_*.txt") do set "T48E_DEFAULT_PROBE_PATH=%%~fF"
+for %%F in ("Working\Test48E\Default\Launcher\Diagnostics\48E_Portable_Environment_Default_Configuration_Probe_*.txt" "Working\Test48E\Default\Launcher\Diagnostics\48E_Portable_Environment_Default_Configuration_Probe_*.log") do if exist "%%~fF" set "T48E_DEFAULT_PROBE_PATH=%%~fF"
 set "T48E_PROBE_DEFAULT=FAIL"
 set "T48E_DEFAULT_PROBE_CODE=FAIL"
 if "!T48E_DEFAULT_PROBE_EXIT!"=="0" set "T48E_DEFAULT_PROBE_CODE=PASS"
 if "!T48E_DEFAULT_PROBE_EXIT!"=="10" set "T48E_DEFAULT_PROBE_CODE=PASS"
 if defined T48E_DEFAULT_PROBE_PATH if exist "!T48E_DEFAULT_PROBE_PATH!" (
-    findstr /l /x /c:"[NOT USED] [Options] FixLocalAppData is not configured; default applies: false" "!T48E_DEFAULT_PROBE_PATH!" >nul 2>&1
+    findstr /l /x /c:"[NOT USED] [Options] FixLocalAppData is not configured; default applies=false" "!T48E_DEFAULT_PROBE_PATH!" >nul 2>&1
     if not errorlevel 1 (
-        findstr /l /x /c:"[NOT USED] [Options] FixTemp is not configured; default applies: false" "!T48E_DEFAULT_PROBE_PATH!" >nul 2>&1
+        findstr /l /x /c:"[NOT USED] [Options] FixTemp is not configured; default applies=false" "!T48E_DEFAULT_PROBE_PATH!" >nul 2>&1
         if not errorlevel 1 set "T48E_PROBE_DEFAULT=PASS"
     )
 )
@@ -3953,21 +3998,21 @@ if not exist "Working\Test48E\Default\Root\Lib\AppData\Local" set "T48E_DEFAULT_
 "Working\Test48E\Enabled\Launcher\X-Launcher_x64.exe" "--x-launcher-config=%CD%\Working\Test48E\Enabled\Launcher\48E_Portable_Environment_Enabled.ini" --x-launcher-test=probe --x-launcher-test-automated >nul 2>&1
 set "T48E_ENABLED_PROBE_EXIT=!ERRORLEVEL!"
 set "T48E_ENABLED_PROBE_PATH="
-for %%F in ("Working\Test48E\Enabled\Launcher\Diagnostics\48E_Portable_Environment_Enabled_Configuration_Probe_*.txt") do set "T48E_ENABLED_PROBE_PATH=%%~fF"
+for %%F in ("Working\Test48E\Enabled\Launcher\Diagnostics\48E_Portable_Environment_Enabled_Configuration_Probe_*.txt" "Working\Test48E\Enabled\Launcher\Diagnostics\48E_Portable_Environment_Enabled_Configuration_Probe_*.log") do if exist "%%~fF" set "T48E_ENABLED_PROBE_PATH=%%~fF"
 set "T48E_PROBE_TRUE=FAIL"
 set "T48E_PROBE_KNOWN=FAIL"
 set "T48E_ENABLED_PROBE_CODE=FAIL"
 if "!T48E_ENABLED_PROBE_EXIT!"=="0" set "T48E_ENABLED_PROBE_CODE=PASS"
 if "!T48E_ENABLED_PROBE_EXIT!"=="10" set "T48E_ENABLED_PROBE_CODE=PASS"
 if defined T48E_ENABLED_PROBE_PATH if exist "!T48E_ENABLED_PROBE_PATH!" (
-    findstr /l /x /c:"[PASS] [Options] FixLocalAppData is a valid Boolean: true" "!T48E_ENABLED_PROBE_PATH!" >nul 2>&1
+    findstr /l /x /c:"[PASS] [Options] FixLocalAppData is a valid Boolean=true" "!T48E_ENABLED_PROBE_PATH!" >nul 2>&1
     if not errorlevel 1 (
-        findstr /l /x /c:"[PASS] [Options] FixTemp is a valid Boolean: true" "!T48E_ENABLED_PROBE_PATH!" >nul 2>&1
+        findstr /l /x /c:"[PASS] [Options] FixTemp is a valid Boolean=true" "!T48E_ENABLED_PROBE_PATH!" >nul 2>&1
         if not errorlevel 1 set "T48E_PROBE_TRUE=PASS"
     )
-    findstr /l /c:"[WARN] [Options] Unknown key: FixLocalAppData" "!T48E_ENABLED_PROBE_PATH!" >nul 2>&1
+    findstr /l /c:"[WARN] [Options] Unknown key=FixLocalAppData" "!T48E_ENABLED_PROBE_PATH!" >nul 2>&1
     if errorlevel 1 (
-        findstr /l /c:"[WARN] [Options] Unknown key: FixTemp" "!T48E_ENABLED_PROBE_PATH!" >nul 2>&1
+        findstr /l /c:"[WARN] [Options] Unknown key=FixTemp" "!T48E_ENABLED_PROBE_PATH!" >nul 2>&1
         if errorlevel 1 set "T48E_PROBE_KNOWN=PASS"
     )
 )
@@ -4047,6 +4092,7 @@ for %%D in ("!APPDATA!") do set "T48F_APPDATA_NAME=%%~nxD"
 >>"Working\Test48F\Root\Payload.bat" echo if /i not "%%LOCALAPPDATA%%"=="%%~dp0Profile\AppData\Local" exit /b 83
 >>"Working\Test48F\Root\Payload.bat" echo if /i not "%%TEMP%%"=="%%~dp0Profile\AppData\Local\Temp" exit /b 84
 >>"Working\Test48F\Root\Payload.bat" echo if /i not "%%TMP%%"=="%%~dp0Profile\AppData\Local\Temp" exit /b 85
+>>"Working\Test48F\Root\Payload.bat" echo if /i not "%%PROGRAMFILES(x86)%%"=="%%~dp0ProgramFiles32" exit /b 86
 >>"Working\Test48F\Root\Payload.bat" echo if not exist "%%APPDATA%%\stremio\." mkdir "%%APPDATA%%\stremio" ^>nul 2^>^&1
 >>"Working\Test48F\Root\Payload.bat" echo ^> "%%APPDATA%%\stremio\Payload.marker" echo PASS
 >>"Working\Test48F\Root\Payload.bat" echo ^> "%%~dp0Compatibility.marker" echo PASS
@@ -4058,6 +4104,9 @@ set "T48F_FIRST_EXIT=!ERRORLEVEL!"
 set "T48F_ENVIRONMENT=FAIL"
 set "T48F_CONFIG=FAIL"
 set "T48F_DEBUG=FAIL"
+set "T48F_DEBUG_FORMAT=FAIL"
+set "T48F_LOG=FAIL"
+set "T48F_PROGRAMFILES=FAIL"
 if exist "Working\Test48F\Root\Compatibility.marker" if exist "Working\Test48F\Root\Profile\!T48F_APPDATA_NAME!\stremio\Payload.marker" set "T48F_ENVIRONMENT=PASS"
 if exist "Working\Test48F\Root\Profile\x-launcher.cfg" (
     findstr /l /x /c:"AppData=!T48F_APPDATA_NAME!" "Working\Test48F\Root\Profile\x-launcher.cfg" >nul 2>&1
@@ -4067,6 +4116,17 @@ if exist "Working\Test48F\Root\Profile\x-launcher.cfg" (
 if exist "Working\Test48F\Launcher\48F_FixAppData_Environment_Compatibility.dbg" (
     findstr /l /c:"[PASS] [Environment] APPDATA=" "Working\Test48F\Launcher\48F_FixAppData_Environment_Compatibility.dbg" | findstr /l /c:"\Profile\!T48F_APPDATA_NAME!" >nul 2>&1
     if not errorlevel 1 set "T48F_DEBUG=PASS"
+    findstr /l /c:"[PASS] [Environment] PROGRAMFILES(x86)=" "Working\Test48F\Launcher\48F_FixAppData_Environment_Compatibility.dbg" | findstr /l /c:"\ProgramFiles32" >nul 2>&1
+    if not errorlevel 1 set "T48F_PROGRAMFILES=PASS"
+    findstr /l /c:" = [SESSION START] id=" "Working\Test48F\Launcher\48F_FixAppData_Environment_Compatibility.dbg" >nul 2>&1
+    if not errorlevel 1 (
+        findstr /l /c:" : [SESSION START] id=" "Working\Test48F\Launcher\48F_FixAppData_Environment_Compatibility.dbg" >nul 2>&1
+        if errorlevel 1 set "T48F_DEBUG_FORMAT=PASS"
+    )
+)
+if exist "Working\Test48F\Launcher\48F_FixAppData_Environment_Compatibility.log" (
+    findstr /l /b /c:"APPDATA=" "Working\Test48F\Launcher\48F_FixAppData_Environment_Compatibility.log" | findstr /l /e /c:"\Profile\!T48F_APPDATA_NAME!" >nul 2>&1
+    if not errorlevel 1 set "T48F_LOG=PASS"
 )
 
 if exist "Working\Test48F\Root\Compatibility.marker" del /q "Working\Test48F\Root\Compatibility.marker" >nul 2>&1
@@ -4080,7 +4140,7 @@ if exist "Working\Test48F\Root\Compatibility.marker" if exist "Working\Test48F\F
 )
 
 set "T48F=FAIL"
-if "!T48F_ENVIRONMENT!"=="PASS" if "!T48F_CONFIG!"=="PASS" if "!T48F_DEBUG!"=="PASS" if "!T48F_STABLE!"=="PASS" set "T48F=PASS"
+if "!T48F_ENVIRONMENT!"=="PASS" if "!T48F_CONFIG!"=="PASS" if "!T48F_DEBUG!"=="PASS" if "!T48F_DEBUG_FORMAT!"=="PASS" if "!T48F_LOG!"=="PASS" if "!T48F_PROGRAMFILES!"=="PASS" if "!T48F_STABLE!"=="PASS" set "T48F=PASS"
 
 if "!T48F!"=="PASS" (
     set /a PASSCOUNT+=1
@@ -4116,7 +4176,7 @@ reg add "HKCU\Software\XLauncher_Test\Full49" /v State /t REG_SZ /d HOST /f >nul
 set "T49_EXIT=!ERRORLEVEL!"
 
 set "T49_REPORT_PATH="
-for /d %%D in ("Working\Test49\Launcher\Diagnostics\X-Launcher-SelfTest\*") do set "T49_REPORT_PATH=%%~fD\Full_Test_Report.txt"
+for /d %%D in ("Working\Test49\Launcher\Diagnostics\X-Launcher-SelfTest\*") do set "T49_REPORT_PATH=%%~fD\Full_Test_Report.log"
 
 set "T49_REPORT=FAIL"
 set "T49_HELPER=FAIL"
@@ -4166,25 +4226,25 @@ set "T49_NOINI_CONTEXT_LINE="
 set "T49_NOINI_CONTEXT_PATH="
 
 if defined T49_REPORT_PATH if exist "!T49_REPORT_PATH!" (
-    findstr /x /c:"Mode: isolated built-in integrity test" "!T49_REPORT_PATH!" >nul 2>&1
+    findstr /x /c:"Mode=isolated built-in integrity test" "!T49_REPORT_PATH!" >nul 2>&1
     if not errorlevel 1 (
-        findstr /x /c:"FAIL: 0" "!T49_REPORT_PATH!" >nul 2>&1
+        findstr /x /c:"FAIL=0" "!T49_REPORT_PATH!" >nul 2>&1
         if not errorlevel 1 (
-            findstr /x /c:"OVERALL: PASS" "!T49_REPORT_PATH!" >nul 2>&1
+            findstr /x /c:"OVERALL=PASS" "!T49_REPORT_PATH!" >nul 2>&1
             if not errorlevel 1 set "T49_REPORT=PASS"
         )
     )
-    findstr /l /x /c:"[PASS] [Self Helper] Private helper completed with success exit code: exit=0; error=0" "!T49_REPORT_PATH!" >nul 2>&1
+    findstr /l /x /c:"[PASS] [Self Helper] Private helper completed with success exit code=exit=0; error=0" "!T49_REPORT_PATH!" >nul 2>&1
     if not errorlevel 1 (
         findstr /l /x /c:"[PASS] [Command Line] Exact arguments and quoted spacing were preserved" "!T49_REPORT_PATH!" >nul 2>&1
         if not errorlevel 1 (
-            findstr /l /x /c:"[PASS] [Process] Controlled nonzero helper exit code was observed: exit=23; error=0" "!T49_REPORT_PATH!" >nul 2>&1
+            findstr /l /x /c:"[PASS] [Process] Controlled nonzero helper exit code was observed=exit=23; error=0" "!T49_REPORT_PATH!" >nul 2>&1
             if not errorlevel 1 set "T49_HELPER=PASS"
         )
     )
-    findstr /l /b /c:"[PASS] [Process] Missing executable launch failure was detected:" "!T49_REPORT_PATH!" >nul 2>&1
+    findstr /l /b /c:"[PASS] [Process] Missing executable launch failure was detected=" "!T49_REPORT_PATH!" >nul 2>&1
     if not errorlevel 1 (
-        findstr /l /b /c:"[PASS] [Process] Two isolated self-helper instances ran concurrently:" "!T49_REPORT_PATH!" >nul 2>&1
+        findstr /l /b /c:"[PASS] [Process] Two isolated self-helper instances ran concurrently=" "!T49_REPORT_PATH!" >nul 2>&1
         if not errorlevel 1 (
             findstr /l /x /c:"[PASS] [Process] Both isolated self-helper instances closed normally" "!T49_REPORT_PATH!" >nul 2>&1
             if not errorlevel 1 set "T49_PROCESS=PASS"
@@ -4324,7 +4384,7 @@ if defined T49_REPORT_PATH if exist "!T49_REPORT_PATH!" (
     if not errorlevel 1 set /a T49_SPLASHTRAY_STAGE6I_COUNT+=1
     findstr /l /x /c:"[PASS] [Splash Tray] Splash fallback image was extracted only to the supplied isolated Temp" "!T49_REPORT_PATH!" >nul 2>&1
     if not errorlevel 1 set /a T49_SPLASHTRAY_STAGE6I_COUNT+=1
-    findstr /l /b /c:"[PASS] [Splash Tray] Splash creation returned without waiting for its configured timeout: elapsed-ms=" "!T49_REPORT_PATH!" >nul 2>&1
+    findstr /l /b /c:"[PASS] [Splash Tray] Splash creation returned without waiting for its configured timeout=elapsed-ms=" "!T49_REPORT_PATH!" >nul 2>&1
     if not errorlevel 1 set /a T49_SPLASHTRAY_STAGE6I_COUNT+=1
     findstr /l /x /c:"[PASS] [Splash Tray] Splash used the configured window title" "!T49_REPORT_PATH!" >nul 2>&1
     if not errorlevel 1 set /a T49_SPLASHTRAY_STAGE6I_COUNT+=1
@@ -4334,7 +4394,7 @@ if defined T49_REPORT_PATH if exist "!T49_REPORT_PATH!" (
     if not errorlevel 1 set /a T49_SPLASHTRAY_STAGE6I_COUNT+=1
     findstr /l /x /c:"[PASS] [Splash Tray] Splash windows and timeout callbacks were closed after inspection" "!T49_REPORT_PATH!" >nul 2>&1
     if not errorlevel 1 set /a T49_SPLASHTRAY_STAGE6I_COUNT+=1
-    findstr /l /b /c:"[PASS] [Splash Tray] TrayTip accepted a millisecond duration and returned without blocking: elapsed-ms=" "!T49_REPORT_PATH!" >nul 2>&1
+    findstr /l /b /c:"[PASS] [Splash Tray] TrayTip accepted a millisecond duration and returned without blocking=elapsed-ms=" "!T49_REPORT_PATH!" >nul 2>&1
     if not errorlevel 1 set /a T49_SPLASHTRAY_STAGE6I_COUNT+=1
     if !T49_SPLASHTRAY_STAGE6I_COUNT!==9 set "T49_SPLASHTRAY_STAGE6I=PASS"
     findstr /l /x /c:"[PASS] [Java Path] Every JavaPath fixture passed the isolated workspace boundary check" "!T49_REPORT_PATH!" >nul 2>&1
@@ -4434,7 +4494,7 @@ if defined T49_REPORT_PATH if exist "!T49_REPORT_PATH!" (
     if not errorlevel 1 set /a T49_PROBEPARSER_STAGE6M_COUNT+=1
     findstr /l /x /c:"[PASS] [Probe Parser] Resolved path root boundary and UNC-prefix contracts were classified without access" "!T49_REPORT_PATH!" >nul 2>&1
     if not errorlevel 1 set /a T49_PROBEPARSER_STAGE6M_COUNT+=1
-    findstr /l /x /c:"[PASS] [Probe Parser] Valid environment names and USERPROFILE paths resolved without being applied" "!T49_REPORT_PATH!" >nul 2>&1
+    findstr /l /x /c:"[PASS] [Probe Parser] Windows environment names including parentheses and USERPROFILE paths were accepted read-only" "!T49_REPORT_PATH!" >nul 2>&1
     if not errorlevel 1 set /a T49_PROBEPARSER_STAGE6M_COUNT+=1
     findstr /l /x /c:"[PASS] [Probe Parser] Valid operation arguments sources destinations and REG files were recognized read-only" "!T49_REPORT_PATH!" >nul 2>&1
     if not errorlevel 1 set /a T49_PROBEPARSER_STAGE6M_COUNT+=1
@@ -4444,7 +4504,7 @@ if defined T49_REPORT_PATH if exist "!T49_REPORT_PATH!" (
     if not errorlevel 1 set /a T49_PROBEPARSER_STAGE6M_COUNT+=1
     findstr /l /x /c:"[PASS] [Probe Parser] Safe disposable and protected Root cleanup targets were distinguished" "!T49_REPORT_PATH!" >nul 2>&1
     if not errorlevel 1 set /a T49_PROBEPARSER_STAGE6M_COUNT+=1
-    findstr /l /x /c:"[PASS] [Probe Parser] Invalid and blank environment entries produced the expected findings" "!T49_REPORT_PATH!" >nul 2>&1
+    findstr /l /x /c:"[PASS] [Probe Parser] Windows-valid spaced names and blank environment values produced the expected findings" "!T49_REPORT_PATH!" >nul 2>&1
     if not errorlevel 1 set /a T49_PROBEPARSER_STAGE6M_COUNT+=1
     findstr /l /x /c:"[PASS] [Probe Parser] Unknown operation spelling and invalid argument count produced findings" "!T49_REPORT_PATH!" >nul 2>&1
     if not errorlevel 1 set /a T49_PROBEPARSER_STAGE6M_COUNT+=1
@@ -4457,23 +4517,31 @@ if defined T49_REPORT_PATH if exist "!T49_REPORT_PATH!" (
     findstr /l /x /c:"[PASS] [Probe Parser] Parser globals working directory and expansion options were restored" "!T49_REPORT_PATH!" >nul 2>&1
     if not errorlevel 1 set /a T49_PROBEPARSER_STAGE6M_COUNT+=1
     if !T49_PROBEPARSER_STAGE6M_COUNT!==18 set "T49_PROBEPARSER_STAGE6M=PASS"
-    for /f "delims=" %%L in ('findstr /l /b /c:"INI context only (configured targets were not used): " "!T49_REPORT_PATH!"') do set "T49_CONTEXT_LINE=%%L"
-    if defined T49_CONTEXT_LINE set "T49_CONTEXT_PATH=!T49_CONTEXT_LINE:INI context only (configured targets were not used): =!"
+    for /f "tokens=1,* delims==" %%L in ('findstr /l /b /c:"INI context only (configured targets were not used)=" "!T49_REPORT_PATH!"') do (
+        set "T49_CONTEXT_LINE=%%L=%%M"
+        set "T49_CONTEXT_PATH=%%M"
+    )
     if /i "!T49_CONTEXT_PATH!"=="%CD%\Working\Test49\Config.ini" (
-        findstr /x /c:"Application: X-Launcher Full Self-Test" "!T49_REPORT_PATH!" >nul 2>&1
+        findstr /x /c:"Application=X-Launcher Full Self-Test" "!T49_REPORT_PATH!" >nul 2>&1
         if not errorlevel 1 (
-            findstr /b /c:"Executable: " "!T49_REPORT_PATH!" >nul 2>&1
+            findstr /b /c:"Executable=" "!T49_REPORT_PATH!" >nul 2>&1
             if not errorlevel 1 set "T49_ISOLATION=PASS"
         )
     )
-    findstr /x /c:"Privacy: Review paths and diagnostic details before sharing." "!T49_REPORT_PATH!" >nul 2>&1
+    findstr /x /c:"Privacy=Review paths and diagnostic details before sharing." "!T49_REPORT_PATH!" >nul 2>&1
     if not errorlevel 1 set "T49_PRIVACY=PASS"
-    for /f "delims=" %%L in ('findstr /b /c:"Workspace: " "!T49_REPORT_PATH!"') do set "T49_WORKSPACE_LINE=%%L"
-    for /f "delims=" %%L in ('findstr /b /c:"Registry root: " "!T49_REPORT_PATH!"') do set "T49_REGISTRY_LINE=%%L"
-    for /f "delims=" %%L in ('findstr /b /c:"Registry view root: " "!T49_REPORT_PATH!"') do set "T49_VIEW_REGISTRY_LINE=%%L"
-    if defined T49_WORKSPACE_LINE set "T49_WORKSPACE=!T49_WORKSPACE_LINE:Workspace: =!"
-    if defined T49_REGISTRY_LINE set "T49_SELFTEST_REG=!T49_REGISTRY_LINE:Registry root: =!"
-    if defined T49_VIEW_REGISTRY_LINE set "T49_VIEW_REG=!T49_VIEW_REGISTRY_LINE:Registry view root: =!"
+    for /f "tokens=1,* delims==" %%L in ('findstr /b /c:"Workspace=" "!T49_REPORT_PATH!"') do (
+        set "T49_WORKSPACE_LINE=%%L=%%M"
+        set "T49_WORKSPACE=%%M"
+    )
+    for /f "tokens=1,* delims==" %%L in ('findstr /b /c:"Registry root=" "!T49_REPORT_PATH!"') do (
+        set "T49_REGISTRY_LINE=%%L=%%M"
+        set "T49_SELFTEST_REG=%%M"
+    )
+    for /f "tokens=1,* delims==" %%L in ('findstr /b /c:"Registry view root=" "!T49_REPORT_PATH!"') do (
+        set "T49_VIEW_REGISTRY_LINE=%%L=%%M"
+        set "T49_VIEW_REG=%%M"
+    )
 )
 
 if not exist "Working\Test49\ConfiguredRoot\PayloadRan.txt" if not exist "Working\Test49\ConfiguredRoot\RunBeforeRan.txt" if not exist "Working\Test49\ConfiguredRoot\RunAfterRan.txt" if not exist "Working\Test49\ConfiguredRoot\FunctionRan.txt" set "T49_ISOLATION_FILES=PASS"
@@ -4497,15 +4565,17 @@ if defined T49_WORKSPACE if not exist "!T49_WORKSPACE!" (
 "Working\Test49\NoIniLauncher\X-Launcher_x64.exe" "--x-launcher-config=%CD%\Working\Test49\Missing.ini" --x-launcher-test=full --x-launcher-test-automated >nul 2>&1
 set "T49_NOINI_EXIT=!ERRORLEVEL!"
 set "T49_NOINI_REPORT="
-for /d %%D in ("Working\Test49\NoIniLauncher\Diagnostics\X-Launcher-SelfTest\*") do set "T49_NOINI_REPORT=%%~fD\Full_Test_Report.txt"
+for /d %%D in ("Working\Test49\NoIniLauncher\Diagnostics\X-Launcher-SelfTest\*") do set "T49_NOINI_REPORT=%%~fD\Full_Test_Report.log"
 if "!T49_NOINI_EXIT!"=="0" set "T49_NOINI_EXIT_CHECK=PASS"
 if not exist "Working\Test49\Missing.ini" set "T49_NOINI_MISSING=PASS"
 if defined T49_NOINI_REPORT if exist "!T49_NOINI_REPORT!" set "T49_NOINI_REPORT_CHECK=PASS"
 if "!T49_NOINI_REPORT_CHECK!"=="PASS" (
-    findstr /l /x /c:"FAIL: 0" "!T49_NOINI_REPORT!" >nul 2>&1
+    findstr /l /x /c:"FAIL=0" "!T49_NOINI_REPORT!" >nul 2>&1
     if not errorlevel 1 set "T49_NOINI_ZERO=PASS"
-    for /f "delims=" %%L in ('findstr /l /b /c:"INI context only (configured targets were not used): " "!T49_NOINI_REPORT!"') do set "T49_NOINI_CONTEXT_LINE=%%L"
-    if defined T49_NOINI_CONTEXT_LINE set "T49_NOINI_CONTEXT_PATH=!T49_NOINI_CONTEXT_LINE:INI context only (configured targets were not used): =!"
+    for /f "tokens=1,* delims==" %%L in ('findstr /l /b /c:"INI context only (configured targets were not used)=" "!T49_NOINI_REPORT!"') do (
+        set "T49_NOINI_CONTEXT_LINE=%%L=%%M"
+        set "T49_NOINI_CONTEXT_PATH=%%M"
+    )
     if /i "!T49_NOINI_CONTEXT_PATH!"=="%CD%\Working\Test49\Missing.ini" set "T49_NOINI_CONTEXT=PASS"
 )
 if "!T49_NOINI_EXIT_CHECK!"=="PASS" if "!T49_NOINI_MISSING!"=="PASS" if "!T49_NOINI_REPORT_CHECK!"=="PASS" if "!T49_NOINI_ZERO!"=="PASS" if "!T49_NOINI_CONTEXT!"=="PASS" set "T49_NOINI=PASS"
@@ -4633,7 +4703,7 @@ mkdir "Working\Test52A\Target"
 > "Working\Test52A\Payload.bat" echo @echo off
 >>"Working\Test52A\Payload.bat" echo ^> "%%~dp0TemporaryJunction\Payload.txt" echo TEMP_JUNCTION_OK
 >>"Working\Test52A\Payload.bat" echo exit /b 0
-if exist "X-Launcher_x64.dbg" del /q "X-Launcher_x64.dbg" >nul 2>&1
+if exist "52A_Junction_Temporary.dbg" del /q "52A_Junction_Temporary.dbg" >nul 2>&1
 
 start "" /wait "%LAUNCHER%" "--x-launcher-config=%CD%\Configs\52A_Junction_Temporary.ini" >nul 2>&1
 set "T52A_EXIT=!ERRORLEVEL!"
@@ -4644,10 +4714,10 @@ set "T52A_DEBUG=FAIL"
 set "T52A_FORCED=FAIL"
 if exist "Working\Test52A\Target\Payload.txt" set "T52A_TARGET=PASS"
 if not exist "Working\Test52A\TemporaryJunction" set "T52A_REMOVED=PASS"
-findstr /l /c:"[PASS] [Functions] Junctions=.\Target|.\TemporaryJunction" "X-Launcher_x64.dbg" >nul 2>&1
-if not errorlevel 1 findstr /l /c:"[PASS] [RunAfter] RemoveJunction=" "X-Launcher_x64.dbg" >nul 2>&1
+findstr /l /c:"[PASS] [Functions] Junctions=.\Target|.\TemporaryJunction" "52A_Junction_Temporary.dbg" >nul 2>&1
+if not errorlevel 1 findstr /l /c:"[PASS] [RunAfter] RemoveJunction=" "52A_Junction_Temporary.dbg" >nul 2>&1
 if not errorlevel 1 set "T52A_DEBUG=PASS"
-findstr /l /c:"RunWait forced true: end-of-run cleanup is required" "X-Launcher_x64.dbg" >nul 2>&1
+findstr /l /c:"RunWait forced true: end-of-run cleanup is required" "52A_Junction_Temporary.dbg" >nul 2>&1
 if not errorlevel 1 set "T52A_FORCED=PASS"
 if "!T52A_EXIT!"=="0" if "!T52A_TARGET!"=="PASS" if "!T52A_REMOVED!"=="PASS" if "!T52A_DEBUG!"=="PASS" if "!T52A_FORCED!"=="PASS" set "T52A=PASS"
 if "!T52A!"=="PASS" (set /a PASSCOUNT+=1) else (set /a FAILCOUNT+=1)
@@ -4659,7 +4729,7 @@ mkdir "Working\Test52B\Target"
 > "Working\Test52B\Payload.bat" echo @echo off
 >>"Working\Test52B\Payload.bat" echo ^> "%%~dp0PersistentJunction\Payload.txt" echo PERSISTENT_JUNCTION_OK
 >>"Working\Test52B\Payload.bat" echo exit /b 0
-if exist "X-Launcher_x64.dbg" del /q "X-Launcher_x64.dbg" >nul 2>&1
+if exist "52B_Junction_Persistent.dbg" del /q "52B_Junction_Persistent.dbg" >nul 2>&1
 
 start "" /wait "%LAUNCHER%" "--x-launcher-config=%CD%\Configs\52B_Junction_Persistent.ini" >nul 2>&1
 set "T52B_EXIT=!ERRORLEVEL!"
@@ -4670,9 +4740,9 @@ set "T52B_DEBUG=FAIL"
 set "T52B_CLEANUP=FAIL"
 if exist "Working\Test52B\Target\Payload.txt" set "T52B_TARGET=PASS"
 if exist "Working\Test52B\PersistentJunction\" set "T52B_KEPT=PASS"
-findstr /l /c:"lifetime=persistent" "X-Launcher_x64.dbg" >nul 2>&1
+findstr /l /c:"lifetime=persistent" "52B_Junction_Persistent.dbg" >nul 2>&1
 if not errorlevel 1 (
-    findstr /l /c:"RemoveJunction=" "X-Launcher_x64.dbg" >nul 2>&1
+    findstr /l /c:"RemoveJunction=" "52B_Junction_Persistent.dbg" >nul 2>&1
     if errorlevel 1 set "T52B_DEBUG=PASS"
 )
 rmdir "Working\Test52B\PersistentJunction" >nul 2>&1
@@ -4688,25 +4758,25 @@ mkdir "Working\Test53A"
 > "Working\Test53A\Payload.bat" echo @echo off
 >>"Working\Test53A\Payload.bat" echo if exist "%%~dp0TemporarySymLink.txt" ^> "%%~dp0TemporarySymLink.txt" echo TEMP_SYMLINK_OK
 >>"Working\Test53A\Payload.bat" echo exit /b 0
-if exist "X-Launcher_x64.dbg" del /q "X-Launcher_x64.dbg" >nul 2>&1
+if exist "53A_SymLink_Temporary.dbg" del /q "53A_SymLink_Temporary.dbg" >nul 2>&1
 
 start "" /wait "%LAUNCHER%" "--x-launcher-config=%CD%\Configs\53A_SymLink_Temporary.ini" >nul 2>&1
 set "T53A_EXIT=!ERRORLEVEL!"
 set "T53A=FAIL"
 set "T53A_MODE=FAILED"
-findstr /l /c:"[PASS] [Functions] SymLinks=.\Target.txt|.\TemporarySymLink.txt" "X-Launcher_x64.dbg" >nul 2>&1
+findstr /l /c:"[PASS] [Functions] SymLinks=.\Target.txt|.\TemporarySymLink.txt" "53A_SymLink_Temporary.dbg" >nul 2>&1
 if not errorlevel 1 (
     findstr /x /c:"TEMP_SYMLINK_OK" "Working\Test53A\Target.txt" >nul 2>&1
     if not errorlevel 1 if not exist "Working\Test53A\TemporarySymLink.txt" (
-        findstr /l /c:"[PASS] [RunAfter] RemoveSymLink=" "X-Launcher_x64.dbg" >nul 2>&1
+        findstr /l /c:"[PASS] [RunAfter] RemoveSymLink=" "53A_SymLink_Temporary.dbg" >nul 2>&1
         if not errorlevel 1 (
             set "T53A=PASS"
             set "T53A_MODE=CREATED_AND_REMOVED"
         )
     )
 ) else (
-    findstr /l /c:"[FAIL] [Functions] SymLinks=.\Target.txt|.\TemporarySymLink.txt" "X-Launcher_x64.dbg" >nul 2>&1
-    if not errorlevel 1 findstr /l /c:"extended=1314)" "X-Launcher_x64.dbg" >nul 2>&1
+    findstr /l /c:"[FAIL] [Functions] SymLinks=.\Target.txt|.\TemporarySymLink.txt" "53A_SymLink_Temporary.dbg" >nul 2>&1
+    if not errorlevel 1 findstr /l /c:"extended=1314)" "53A_SymLink_Temporary.dbg" >nul 2>&1
     if not errorlevel 1 (
         set "T53A=PASS"
         set "T53A_MODE=PRIVILEGE_UNAVAILABLE"
@@ -4722,13 +4792,13 @@ mkdir "Working\Test53B\Target"
 > "Working\Test53B\Payload.bat" echo @echo off
 >>"Working\Test53B\Payload.bat" echo if exist "%%~dp0PersistentSymLink" ^> "%%~dp0PersistentSymLink\Payload.txt" echo PERSISTENT_SYMLINK_OK
 >>"Working\Test53B\Payload.bat" echo exit /b 0
-if exist "X-Launcher_x64.dbg" del /q "X-Launcher_x64.dbg" >nul 2>&1
+if exist "53B_SymLink_Persistent.dbg" del /q "53B_SymLink_Persistent.dbg" >nul 2>&1
 
 start "" /wait "%LAUNCHER%" "--x-launcher-config=%CD%\Configs\53B_SymLink_Persistent.ini" >nul 2>&1
 set "T53B_EXIT=!ERRORLEVEL!"
 set "T53B=FAIL"
 set "T53B_MODE=FAILED"
-findstr /l /c:"lifetime=persistent" "X-Launcher_x64.dbg" >nul 2>&1
+findstr /l /c:"lifetime=persistent" "53B_SymLink_Persistent.dbg" >nul 2>&1
 if not errorlevel 1 (
     if exist "Working\Test53B\PersistentSymLink\" if exist "Working\Test53B\Target\Payload.txt" (
         rmdir "Working\Test53B\PersistentSymLink" >nul 2>&1
@@ -4738,8 +4808,8 @@ if not errorlevel 1 (
         )
     )
 ) else (
-    findstr /l /c:"[FAIL] [Functions] SymLinks=.\Target|.\PersistentSymLink|*" "X-Launcher_x64.dbg" >nul 2>&1
-    if not errorlevel 1 findstr /l /c:"extended=1314)" "X-Launcher_x64.dbg" >nul 2>&1
+    findstr /l /c:"[FAIL] [Functions] SymLinks=.\Target|.\PersistentSymLink|*" "53B_SymLink_Persistent.dbg" >nul 2>&1
+    if not errorlevel 1 findstr /l /c:"extended=1314)" "53B_SymLink_Persistent.dbg" >nul 2>&1
     if not errorlevel 1 (
         set "T53B=PASS"
         set "T53B_MODE=PRIVILEGE_UNAVAILABLE"
@@ -4747,6 +4817,98 @@ if not errorlevel 1 (
 )
 if not "!T53B_EXIT!"=="0" set "T53B=FAIL"
 if "!T53B!"=="PASS" (set /a PASSCOUNT+=1) else (set /a FAILCOUNT+=1)
+
+echo Running Test 54 - Protected Lib DirRemove Modes...
+set /a TOTAL+=1
+if exist "Working\Test54" rmdir /s /q "Working\Test54"
+for %%M in (A B C D) do (
+	mkdir "Working\Test54\%%M\Launcher" >nul 2>&1
+	mkdir "Working\Test54\%%M\Root\Lib" >nul 2>&1
+	copy /y "%LAUNCHER%" "Working\Test54\%%M\Launcher\X-Launcher_x64.exe" >nul 2>&1
+	> "Working\Test54\%%M\Root\Payload.bat" echo @echo off
+	>>"Working\Test54\%%M\Root\Payload.bat" echo ^> "%%~dp0PayloadRan.txt" echo RAN
+	>>"Working\Test54\%%M\Root\Payload.bat" echo exit /b 0
+)
+copy /y "Configs\54A_DirRemove_Lib_Empty.ini" "Working\Test54\A\Launcher\54A_DirRemove_Lib_Empty.ini" >nul 2>&1
+copy /y "Configs\54B_DirRemove_Lib_Contents.ini" "Working\Test54\B\Launcher\54B_DirRemove_Lib_Contents.ini" >nul 2>&1
+copy /y "Configs\54C_DirRemove_Lib_Contents_Empty.ini" "Working\Test54\C\Launcher\54C_DirRemove_Lib_Contents_Empty.ini" >nul 2>&1
+copy /y "Configs\54D_DirRemove_Lib_Blocked.ini" "Working\Test54\D\Launcher\54D_DirRemove_Lib_Blocked.ini" >nul 2>&1
+
+for %%M in (A C) do (
+	mkdir "Working\Test54\%%M\Root\Lib\EmptyParent\EmptyChild" >nul 2>&1
+	mkdir "Working\Test54\%%M\Root\Lib\Keep" >nul 2>&1
+	> "Working\Test54\%%M\Root\Lib\Keep\Keep.txt" echo KEEP
+	> "Working\Test54\%%M\Root\Lib\RootKeep.txt" echo KEEP_ROOT_FILE
+)
+for %%M in (B D) do (
+	mkdir "Working\Test54\%%M\Root\Lib\DeleteDir" >nul 2>&1
+	> "Working\Test54\%%M\Root\Lib\DeleteDir\Delete.txt" echo DELETE_OR_PRESERVE
+	> "Working\Test54\%%M\Root\Lib\RootFile.txt" echo DELETE_OR_PRESERVE
+)
+
+"Working\Test54\A\Launcher\X-Launcher_x64.exe" "--x-launcher-config=%CD%\Working\Test54\A\Launcher\54A_DirRemove_Lib_Empty.ini" --x-launcher-test=probe --x-launcher-test-automated >nul 2>&1
+set "T54A_PROBE_EXIT=!ERRORLEVEL!"
+"Working\Test54\B\Launcher\X-Launcher_x64.exe" "--x-launcher-config=%CD%\Working\Test54\B\Launcher\54B_DirRemove_Lib_Contents.ini" --x-launcher-test=probe --x-launcher-test-automated >nul 2>&1
+set "T54B_PROBE_EXIT=!ERRORLEVEL!"
+"Working\Test54\C\Launcher\X-Launcher_x64.exe" "--x-launcher-config=%CD%\Working\Test54\C\Launcher\54C_DirRemove_Lib_Contents_Empty.ini" --x-launcher-test=probe --x-launcher-test-automated >nul 2>&1
+set "T54C_PROBE_EXIT=!ERRORLEVEL!"
+"Working\Test54\D\Launcher\X-Launcher_x64.exe" "--x-launcher-config=%CD%\Working\Test54\D\Launcher\54D_DirRemove_Lib_Blocked.ini" --x-launcher-test=probe --x-launcher-test-automated >nul 2>&1
+set "T54D_PROBE_EXIT=!ERRORLEVEL!"
+
+set "T54A_PROBE_PATH="
+set "T54B_PROBE_PATH="
+set "T54C_PROBE_PATH="
+set "T54D_PROBE_PATH="
+for %%F in ("Working\Test54\A\Launcher\Diagnostics\*.log") do if exist "%%~fF" set "T54A_PROBE_PATH=%%~fF"
+for %%F in ("Working\Test54\B\Launcher\Diagnostics\*.log") do if exist "%%~fF" set "T54B_PROBE_PATH=%%~fF"
+for %%F in ("Working\Test54\C\Launcher\Diagnostics\*.log") do if exist "%%~fF" set "T54C_PROBE_PATH=%%~fF"
+for %%F in ("Working\Test54\D\Launcher\Diagnostics\*.log") do if exist "%%~fF" set "T54D_PROBE_PATH=%%~fF"
+
+set "T54_PROBE=FAIL"
+if "!T54A_PROBE_EXIT!"=="0" if "!T54B_PROBE_EXIT!"=="0" if "!T54C_PROBE_EXIT!"=="0" if "!T54D_PROBE_EXIT!"=="10" if defined T54A_PROBE_PATH if defined T54B_PROBE_PATH if defined T54C_PROBE_PATH if defined T54D_PROBE_PATH (
+	findstr /l /b /c:"[PASS] [RunAfter] DirRemove protected-base cleanup is safe: e flag will remove empty descendant directories while preserving Lib=" "!T54A_PROBE_PATH!" >nul 2>&1
+	if not errorlevel 1 findstr /l /b /c:"[PASS] [RunAfter] DirRemove protected-base cleanup is safe: trailing separator will remove contents while preserving Lib=" "!T54B_PROBE_PATH!" >nul 2>&1
+	if not errorlevel 1 findstr /l /b /c:"[PASS] [RunAfter] DirRemove protected-base cleanup is safe: e flag will remove empty descendant directories while preserving Lib=" "!T54C_PROBE_PATH!" >nul 2>&1
+	if not errorlevel 1 findstr /l /b /c:"[FAIL] [RunAfter] DirRemove has a dangerous target: protected path=" "!T54D_PROBE_PATH!" >nul 2>&1
+	if not errorlevel 1 set "T54_PROBE=PASS"
+)
+
+start "" /wait "Working\Test54\A\Launcher\X-Launcher_x64.exe" "--x-launcher-config=%CD%\Working\Test54\A\Launcher\54A_DirRemove_Lib_Empty.ini" >nul 2>&1
+set "T54A_EXIT=!ERRORLEVEL!"
+start "" /wait "Working\Test54\B\Launcher\X-Launcher_x64.exe" "--x-launcher-config=%CD%\Working\Test54\B\Launcher\54B_DirRemove_Lib_Contents.ini" >nul 2>&1
+set "T54B_EXIT=!ERRORLEVEL!"
+start "" /wait "Working\Test54\C\Launcher\X-Launcher_x64.exe" "--x-launcher-config=%CD%\Working\Test54\C\Launcher\54C_DirRemove_Lib_Contents_Empty.ini" >nul 2>&1
+set "T54C_EXIT=!ERRORLEVEL!"
+start "" /wait "Working\Test54\D\Launcher\X-Launcher_x64.exe" "--x-launcher-config=%CD%\Working\Test54\D\Launcher\54D_DirRemove_Lib_Blocked.ini" >nul 2>&1
+set "T54D_EXIT=!ERRORLEVEL!"
+
+set "T54_PAYLOAD=PASS"
+for %%M in (A B C D) do if not exist "Working\Test54\%%M\Root\PayloadRan.txt" set "T54_PAYLOAD=FAIL"
+
+set "T54_EMPTY=FAIL"
+if exist "Working\Test54\A\Root\Lib" if not exist "Working\Test54\A\Root\Lib\EmptyParent" if exist "Working\Test54\A\Root\Lib\Keep\Keep.txt" if exist "Working\Test54\A\Root\Lib\RootKeep.txt" set "T54_EMPTY=PASS"
+
+set "T54_CONTENTS=FAIL"
+if exist "Working\Test54\B\Root\Lib" if not exist "Working\Test54\B\Root\Lib\DeleteDir" if not exist "Working\Test54\B\Root\Lib\RootFile.txt" set "T54_CONTENTS=PASS"
+
+set "T54_CONTENTS_EMPTY=FAIL"
+if exist "Working\Test54\C\Root\Lib" if not exist "Working\Test54\C\Root\Lib\EmptyParent" if exist "Working\Test54\C\Root\Lib\Keep\Keep.txt" if exist "Working\Test54\C\Root\Lib\RootKeep.txt" set "T54_CONTENTS_EMPTY=PASS"
+
+set "T54_BLOCKED=FAIL"
+if exist "Working\Test54\D\Root\Lib\DeleteDir\Delete.txt" if exist "Working\Test54\D\Root\Lib\RootFile.txt" set "T54_BLOCKED=PASS"
+
+set "T54_DEBUG=FAIL"
+findstr /l /c:"[PASS] [RunAfter] DirRemove=" "Working\Test54\A\Launcher\54A_DirRemove_Lib_Empty.dbg" >nul 2>&1
+if not errorlevel 1 findstr /l /c:"[PASS] [RunAfter] DirRemove=" "Working\Test54\B\Launcher\54B_DirRemove_Lib_Contents.dbg" >nul 2>&1
+if not errorlevel 1 findstr /l /c:"[PASS] [RunAfter] DirRemove=" "Working\Test54\C\Launcher\54C_DirRemove_Lib_Contents_Empty.dbg" >nul 2>&1
+if not errorlevel 1 findstr /l /c:"[FAIL] [RunAfter] DirRemove=" "Working\Test54\D\Launcher\54D_DirRemove_Lib_Blocked.dbg" >nul 2>&1
+if not errorlevel 1 findstr /l /c:"error=5" "Working\Test54\D\Launcher\54D_DirRemove_Lib_Blocked.dbg" >nul 2>&1
+if not errorlevel 1 findstr /l /c:"reason=protected target blocked" "Working\Test54\D\Launcher\54D_DirRemove_Lib_Blocked.dbg" >nul 2>&1
+if not errorlevel 1 set "T54_DEBUG=PASS"
+
+set "T54=FAIL"
+if "!T54A_EXIT!"=="0" if "!T54B_EXIT!"=="0" if "!T54C_EXIT!"=="0" if "!T54D_EXIT!"=="0" if "!T54_PROBE!"=="PASS" if "!T54_PAYLOAD!"=="PASS" if "!T54_EMPTY!"=="PASS" if "!T54_CONTENTS!"=="PASS" if "!T54_CONTENTS_EMPTY!"=="PASS" if "!T54_BLOCKED!"=="PASS" if "!T54_DEBUG!"=="PASS" set "T54=PASS"
+if "!T54!"=="PASS" (set /a PASSCOUNT+=1) else (set /a FAILCOUNT+=1)
 
 echo.
 
@@ -4821,500 +4983,521 @@ echo - Temporary Junction Lifecycle:                      !T52A!
 echo - Persistent Junction Flag:                          !T52B!
 echo - Temporary Symbolic-Link Lifecycle:                 !T53A! ^(!T53A_MODE!^)
 echo - Persistent Symbolic-Link Flag:                     !T53B! ^(!T53B_MODE!^)
+echo - Protected Lib DirRemove Modes:                     !T54!
 echo.
 echo Passed: !PASSCOUNT!
 echo Failed: !FAILCOUNT!
 echo Total:  !TOTAL!
 echo ============================================================
 
->>"%RESULTS%" echo - Exit Handler:                    !T1!
->>"%RESULTS%" echo - Launch Failure Detection:        !T2!
->>"%RESULTS%" echo - Ignore Unrelated Same-Name EXE:  !T3A!
->>"%RESULTS%" echo - Preserve Multiple Instances:     !T3B!
->>"%RESULTS%" echo - Preserve RunWait False:           !T4A!
->>"%RESULTS%" echo - RunAfter Requires Waiting:        !T4B!
->>"%RESULTS%" echo - Registry Command Exit Code:       !T5!
->>"%RESULTS%" echo - Registry Backup Failure Safety:   !T6!
->>"%RESULTS%" echo - Registry Restore Failure Safety:  !T7!
->>"%RESULTS%" echo - Registry 32-bit View:              !T8!
->>"%RESULTS%" echo - Registry 64-bit View:              !T8B!
->>"%RESULTS%" echo - Registry Native View Compatibility: !T8C!
->>"%RESULTS%" echo - Interrupted Registry Recovery:       !T9!
->>"%RESULTS%" echo - Protected Registry Failure Safety:   !T10!
->>"%RESULTS%" echo - RegView Auto Detect 32-bit EXE:      !T11A!
->>"%RESULTS%" echo - RegView Auto Detect 64-bit EXE:      !T11B!
->>"%RESULTS%" echo - RegView Auto Native Fallback:        !T11C!
->>"%RESULTS%" echo - Multi-Root Registry Safety:          !T12!
->>"%RESULTS%" echo - Registry Restore Order Manifest:     !T13!
->>"%RESULTS%" echo - Registry Backup Filename Uniqueness: !T14!
->>"%RESULTS%" echo - WriteToReg REG Syntax:               !T15!
->>"%RESULTS%" echo - DirMove Partial Failure Safety:      !T16!
->>"%RESULTS%" echo - DirCreate Return Contract:           !T17!
->>"%RESULTS%" echo - FileDelete Return Contract:          !T18!
->>"%RESULTS%" echo - FileCopy Return Contract:            !T19!
->>"%RESULTS%" echo - FirstRun Required Failure Handling:  !T20!
->>"%RESULTS%" echo - Temp Root Deletion Safety:           !T21!
->>"%RESULTS%" echo - Splash Fallback Temp Parameter:      !T22!
->>"%RESULTS%" echo - Splash Does Not Delay Startup:       !T23!
->>"%RESULTS%" echo - Splash Title and Dimensions:         !T24!
->>"%RESULTS%" echo - Automatic Language Result:           !T25!
->>"%RESULTS%" echo - TrayTip Timeout Key Compatibility:   !T26!
->>"%RESULTS%" echo - TrayTip Duration Units:              !T27!
->>"%RESULTS%" echo - StringRegExp Counter Option:          !T28!
->>"%RESULTS%" echo - Hidden EXE Command-Line Quoting:      !T29!
->>"%RESULTS%" echo - Text Rewrite Format Preservation:     !T30!
->>"%RESULTS%" echo - MozPrefs Exact Preference Matching:    !T31!
->>"%RESULTS%" echo - Multi-Path Relative Path Consistency:  !T32!
->>"%RESULTS%" echo - UNC Path Preservation:                  !T33!
->>"%RESULTS%" echo - FixDriveLetter Safety and Scope:        !T34!
->>"%RESULTS%" echo - FixUserProfile Source Safety:           !T35!
->>"%RESULTS%" echo - FullPath Excessive Traversal Handling:  !T36!
->>"%RESULTS%" echo - Java Download Completion Handling:       !T37!
->>"%RESULTS%" echo - Java Fatal Error Propagation:             !T38!
->>"%RESULTS%" echo - Java Tray Exit Cancellation:              !T39!
->>"%RESULTS%" echo - JavaGet Result Handling:                   !T40!
->>"%RESULTS%" echo - Java Version Comparison:                   !T41!
->>"%RESULTS%" echo - Java Runtime Policy and Guidance:           !T42!
->>"%RESULTS%" echo - Modern Java ZIP Transaction:               !T43!
->>"%RESULTS%" echo - Configurable Java Download Compatibility:      !T44!
->>"%RESULTS%" echo - TestRun Parsing and Safe Routing:               !T45!
->>"%RESULTS%" echo - Configuration Probe Read-Only Checks:           !T46!
->>"%RESULTS%" echo - ProcMonPath Resolution and Probe Reporting:      !T47!
->>"%RESULTS%" echo - X-Launcher-Only Application Trace:                !T48!
->>"%RESULTS%" echo - Readable Application Portability Report:           !T48B!
->>"%RESULTS%" echo - FileMove Wildcard No-Match Semantics:               !T48C!
->>"%RESULTS%" echo - RunAfter Stop-On-Failure Policy:                     !T48D!
->>"%RESULTS%" echo - Portable LOCALAPPDATA TEMP and TMP Defaults:          !T48E!
->>"%RESULTS%" echo - FixAppData Environment Compatibility:                 !T48F!
->>"%RESULTS%" echo - Isolated Full Test Foundation:                     !T49!
->>"%RESULTS%" echo - Full Test Debug Result Reporting:                  !T49_DEBUGREPORT_STAGE6L!
->>"%RESULTS%" echo - Full Test Configuration Probe Parser:              !T49_PROBEPARSER_STAGE6M!
->>"%RESULTS%" echo - MultipleInstances Correct Spelling:               !T50!
->>"%RESULTS%" echo - SendMessageTimeout x64 Signature:                  !T51!
->>"%RESULTS%" echo - Temporary Junction Lifecycle:                      !T52A!
->>"%RESULTS%" echo - Persistent Junction Flag:                          !T52B!
->>"%RESULTS%" echo - Temporary Symbolic-Link Lifecycle:                 !T53A! ^(!T53A_MODE!^)
->>"%RESULTS%" echo - Persistent Symbolic-Link Flag:                     !T53B! ^(!T53B_MODE!^)
+>>"%RESULTS%" echo - Exit Handler=                    !T1!
+>>"%RESULTS%" echo - Launch Failure Detection=        !T2!
+>>"%RESULTS%" echo - Ignore Unrelated Same-Name EXE=  !T3A!
+>>"%RESULTS%" echo - Preserve Multiple Instances=     !T3B!
+>>"%RESULTS%" echo - Preserve RunWait False=           !T4A!
+>>"%RESULTS%" echo - RunAfter Requires Waiting=        !T4B!
+>>"%RESULTS%" echo - Registry Command Exit Code=       !T5!
+>>"%RESULTS%" echo - Registry Backup Failure Safety=   !T6!
+>>"%RESULTS%" echo - Registry Restore Failure Safety=  !T7!
+>>"%RESULTS%" echo - Registry 32-bit View=              !T8!
+>>"%RESULTS%" echo - Registry 64-bit View=              !T8B!
+>>"%RESULTS%" echo - Registry Native View Compatibility= !T8C!
+>>"%RESULTS%" echo - Interrupted Registry Recovery=       !T9!
+>>"%RESULTS%" echo - Protected Registry Failure Safety=   !T10!
+>>"%RESULTS%" echo - RegView Auto Detect 32-bit EXE=      !T11A!
+>>"%RESULTS%" echo - RegView Auto Detect 64-bit EXE=      !T11B!
+>>"%RESULTS%" echo - RegView Auto Native Fallback=        !T11C!
+>>"%RESULTS%" echo - Multi-Root Registry Safety=          !T12!
+>>"%RESULTS%" echo - Registry Restore Order Manifest=     !T13!
+>>"%RESULTS%" echo - Registry Backup Filename Uniqueness= !T14!
+>>"%RESULTS%" echo - WriteToReg REG Syntax=               !T15!
+>>"%RESULTS%" echo - DirMove Partial Failure Safety=      !T16!
+>>"%RESULTS%" echo - DirCreate Return Contract=           !T17!
+>>"%RESULTS%" echo - FileDelete Return Contract=          !T18!
+>>"%RESULTS%" echo - FileCopy Return Contract=            !T19!
+>>"%RESULTS%" echo - FirstRun Required Failure Handling=  !T20!
+>>"%RESULTS%" echo - Temp Root Deletion Safety=           !T21!
+>>"%RESULTS%" echo - Splash Fallback Temp Parameter=      !T22!
+>>"%RESULTS%" echo - Splash Does Not Delay Startup=       !T23!
+>>"%RESULTS%" echo - Splash Title and Dimensions=         !T24!
+>>"%RESULTS%" echo - Automatic Language Result=           !T25!
+>>"%RESULTS%" echo - TrayTip Timeout Key Compatibility=   !T26!
+>>"%RESULTS%" echo - TrayTip Duration Units=              !T27!
+>>"%RESULTS%" echo - StringRegExp Counter Option=          !T28!
+>>"%RESULTS%" echo - Hidden EXE Command-Line Quoting=      !T29!
+>>"%RESULTS%" echo - Text Rewrite Format Preservation=     !T30!
+>>"%RESULTS%" echo - MozPrefs Exact Preference Matching=    !T31!
+>>"%RESULTS%" echo - Multi-Path Relative Path Consistency=  !T32!
+>>"%RESULTS%" echo - UNC Path Preservation=                  !T33!
+>>"%RESULTS%" echo - FixDriveLetter Safety and Scope=        !T34!
+>>"%RESULTS%" echo - FixUserProfile Source Safety=           !T35!
+>>"%RESULTS%" echo - FullPath Excessive Traversal Handling=  !T36!
+>>"%RESULTS%" echo - Java Download Completion Handling=       !T37!
+>>"%RESULTS%" echo - Java Fatal Error Propagation=             !T38!
+>>"%RESULTS%" echo - Java Tray Exit Cancellation=              !T39!
+>>"%RESULTS%" echo - JavaGet Result Handling=                   !T40!
+>>"%RESULTS%" echo - Java Version Comparison=                   !T41!
+>>"%RESULTS%" echo - Java Runtime Policy and Guidance=           !T42!
+>>"%RESULTS%" echo - Modern Java ZIP Transaction=               !T43!
+>>"%RESULTS%" echo - Configurable Java Download Compatibility=      !T44!
+>>"%RESULTS%" echo - TestRun Parsing and Safe Routing=               !T45!
+>>"%RESULTS%" echo - Configuration Probe Read-Only Checks=           !T46!
+>>"%RESULTS%" echo - ProcMonPath Resolution and Probe Reporting=      !T47!
+>>"%RESULTS%" echo - X-Launcher-Only Application Trace=                !T48!
+>>"%RESULTS%" echo - Readable Application Portability Report=           !T48B!
+>>"%RESULTS%" echo - FileMove Wildcard No-Match Semantics=               !T48C!
+>>"%RESULTS%" echo - RunAfter Stop-On-Failure Policy=                     !T48D!
+>>"%RESULTS%" echo - Portable LOCALAPPDATA TEMP and TMP Defaults=          !T48E!
+>>"%RESULTS%" echo - FixAppData Environment Compatibility=                 !T48F!
+>>"%RESULTS%" echo - Isolated Full Test Foundation=                     !T49!
+>>"%RESULTS%" echo - Full Test Debug Result Reporting=                  !T49_DEBUGREPORT_STAGE6L!
+>>"%RESULTS%" echo - Full Test Configuration Probe Parser=              !T49_PROBEPARSER_STAGE6M!
+>>"%RESULTS%" echo - MultipleInstances Correct Spelling=               !T50!
+>>"%RESULTS%" echo - SendMessageTimeout x64 Signature=                  !T51!
+>>"%RESULTS%" echo - Temporary Junction Lifecycle=                      !T52A!
+>>"%RESULTS%" echo - Persistent Junction Flag=                          !T52B!
+>>"%RESULTS%" echo - Temporary Symbolic-Link Lifecycle=                 !T53A! ^(!T53A_MODE!^)
+>>"%RESULTS%" echo - Persistent Symbolic-Link Flag=                     !T53B! ^(!T53B_MODE!^)
+>>"%RESULTS%" echo - Protected Lib DirRemove Modes=                     !T54!
 >>"%RESULTS%" echo.
->>"%RESULTS%" echo Passed: !PASSCOUNT!
->>"%RESULTS%" echo Failed: !FAILCOUNT!
->>"%RESULTS%" echo Total:  !TOTAL!
+>>"%RESULTS%" echo Passed= !PASSCOUNT!
+>>"%RESULTS%" echo Failed= !FAILCOUNT!
+>>"%RESULTS%" echo Total=  !TOTAL!
 >>"%RESULTS%" echo.
->>"%RESULTS%" echo Test 02 launcher exit code: !T2EXIT!
->>"%RESULTS%" echo Test 03B during second instance: !T3B_MID!
->>"%RESULTS%" echo Test 03B after all instances:    !T3B_END!
->>"%RESULTS%" echo Test 05 host-key restore:             !T5_RESTORE!
->>"%RESULTS%" echo Test 05 failure detection:            !T5_DETECT!
->>"%RESULTS%" echo Test 06 host registry preserved:        !T6_HOST!
->>"%RESULTS%" echo Test 06 launcher exit code:             !T6EXIT!
->>"%RESULTS%" echo Test 07 failed backup preserved:        !T7_BACKUP!
->>"%RESULTS%" echo Test 07 restore failure detected:       !T7_DETECT!
->>"%RESULTS%" echo Test 08 active view selection:          !T8_ACTIVE!
->>"%RESULTS%" echo Test 08 32-bit host restored:           !T8_RESTORE32!
->>"%RESULTS%" echo Test 08 64-bit host untouched:          !T8_RESTORE64!
->>"%RESULTS%" echo Test 08B active view selection:         !T8B_ACTIVE!
->>"%RESULTS%" echo Test 08B 64-bit host restored:          !T8B_RESTORE64!
->>"%RESULTS%" echo Test 08B 32-bit host untouched:         !T8B_RESTORE32!
->>"%RESULTS%" echo Test 08C native active view:            !T8C_ACTIVE!
->>"%RESULTS%" echo Test 08C native 64-bit restored:        !T8C_RESTORE64!
->>"%RESULTS%" echo Test 08C native 32-bit untouched:       !T8C_RESTORE32!
->>"%RESULTS%" echo Test 09 portable state reached:          !T9_IMPORTED!
->>"%RESULTS%" echo Test 09 original backup survived crash:  !T9_BACKUP!
->>"%RESULTS%" echo Test 09 crash state established:         !T9_CRASH_STATE!
->>"%RESULTS%" echo Test 09 original host recovered:         !T9_RECOVERY!
->>"%RESULTS%" echo Test 10 permission denial established:    !T10_SETUP!
->>"%RESULTS%" echo Test 10 original host preserved:          !T10_HOST!
->>"%RESULTS%" echo Test 10 portable write blocked:           !T10_PORTABLE!
->>"%RESULTS%" echo Test 10 application launch blocked:       !T10_BLOCKED!
->>"%RESULTS%" echo Test 10 launcher exit code:                !T10EXIT!
->>"%RESULTS%" echo Test 11A Auto selected 32-bit view:       !T11A_ACTIVE!
->>"%RESULTS%" echo Test 11A 32-bit host restored:           !T11A_RESTORE32!
->>"%RESULTS%" echo Test 11A 64-bit host untouched:          !T11A_RESTORE64!
->>"%RESULTS%" echo Test 11B Auto selected 64-bit view:       !T11B_ACTIVE!
->>"%RESULTS%" echo Test 11B 64-bit host restored:           !T11B_RESTORE64!
->>"%RESULTS%" echo Test 11B 32-bit host untouched:          !T11B_RESTORE32!
->>"%RESULTS%" echo Test 11C Auto fallback used Native:       !T11C_ACTIVE!
->>"%RESULTS%" echo Test 11C Native host restored:           !T11C_RESTORE64!
->>"%RESULTS%" echo Test 11C 32-bit host untouched:          !T11C_RESTORE32!
->>"%RESULTS%" echo Test 12 both portable roots active:          !T12_ACTIVE!
->>"%RESULTS%" echo Test 12 first host root restored:           !T12_ROOT1!
->>"%RESULTS%" echo Test 12 second host root restored:          !T12_ROOT2!
->>"%RESULTS%" echo Test 12 first portable-only value removed:   !T12_CLEAN1!
->>"%RESULTS%" echo Test 12 second portable-only value removed:  !T12_CLEAN2!
->>"%RESULTS%" echo Test 12 both roots saved to portable REG:    !T12_SAVE!
->>"%RESULTS%" echo Test 13 portable registry state active:       !T13_ACTIVE!
->>"%RESULTS%" echo Test 13 transaction manifest present:         !T13_MANIFEST!
->>"%RESULTS%" echo Test 13 ordered backup manifest recorded:     !T13_ORDER!
->>"%RESULTS%" echo Test 13 original host registry restored:      !T13_RESTORE!
->>"%RESULTS%" echo Test 14 portable collision keys active:       !T14_ACTIVE!
->>"%RESULTS%" echo Test 14 backup filenames all unique:          !T14_UNIQUE!
->>"%RESULTS%" echo Test 14 collision victim host restored:       !T14_VICTIM!
->>"%RESULTS%" echo Test 14 collision winner host restored:       !T14_WINNER!
->>"%RESULTS%" echo Test 14 non-colliding host restored:          !T14_SAMPLE!
->>"%RESULTS%" echo Test 15 generated REG file created:           !T15_FILE!
->>"%RESULTS%" echo Test 15 generated REG syntax correct:         !T15_SYNTAX!
->>"%RESULTS%" echo Test 15 generated REG imports successfully:   !T15_IMPORT!
->>"%RESULTS%" echo Test 15 generated root value correct:         !T15_ROOT!
->>"%RESULTS%" echo Test 15 generated subkey value correct:       !T15_CHILD!
->>"%RESULTS%" echo Test 15 application reached generated values:  !T15_ACTIVE!
->>"%RESULTS%" echo Test 15 host registry cleaned after launch:    !T15_CLEAN!
->>"%RESULTS%" echo Test 15 launcher exit code:                   !T15_EXIT!
->>"%RESULTS%" echo Test 16 application launched after DirMove:     !T16_ACTIVE!
->>"%RESULTS%" echo Test 16 destination conflict preserved:        !T16_DESTCONFLICT!
->>"%RESULTS%" echo Test 16 non-conflicting file moved:             !T16_MOVED!
->>"%RESULTS%" echo Test 16 moved file removed from source:         !T16_MOVEDSOURCE!
->>"%RESULTS%" echo Test 16 unmoved source file preserved:          !T16_SOURCE!
->>"%RESULTS%" echo Test 16 launcher exit code:                     !T16_EXIT!
->>"%RESULTS%" echo Test 17 single directory created:                !T17_SINGLE_CREATED!
->>"%RESULTS%" echo Test 17 successful call reports success:         !T17_SINGLE_STATUS!
->>"%RESULTS%" echo Test 17 earlier create failure retained:          !T17_FAILURE_RETAINED!
->>"%RESULTS%" echo Test 17 later valid directories created:          !T17_LATER_CREATED!
->>"%RESULTS%" echo Test 17 helper probe exit code:                   !T17_EXIT!
->>"%RESULTS%" echo Test 18 single file deleted:                     !T18_SINGLE_DELETED!
->>"%RESULTS%" echo Test 18 successful delete reports success:       !T18_SINGLE_STATUS!
->>"%RESULTS%" echo Test 18 earlier delete failure retained:          !T18_FAILURE_RETAINED!
->>"%RESULTS%" echo Test 18 failed target preserved:                  !T18_FAILED_PRESERVED!
->>"%RESULTS%" echo Test 18 later valid file deleted:                 !T18_LATER_DELETED!
->>"%RESULTS%" echo Test 18 helper probe exit code:                   !T18_EXIT!
->>"%RESULTS%" echo Test 19 single file copied:                      !T19_SINGLE_COPIED!
->>"%RESULTS%" echo Test 19 successful copy reports success:         !T19_SINGLE_STATUS!
->>"%RESULTS%" echo Test 19 earlier copy failure retained:            !T19_FAILURE_RETAINED!
->>"%RESULTS%" echo Test 19 later valid file copied:                  !T19_LATER_COPIED!
->>"%RESULTS%" echo Test 19 missing source not fabricated:            !T19_MISSING_ABSENT!
->>"%RESULTS%" echo Test 19 helper probe exit code:                   !T19_EXIT!
->>"%RESULTS%" echo Test 20 failed FirstRun remains enabled:          !T20_FAIL_RETAINED!
->>"%RESULTS%" echo Test 20 payload blocked after FirstRun failure:   !T20_FAIL_BLOCKED!
->>"%RESULTS%" echo Test 20 successful FirstRun clears flag:         !T20_SUCCESS_CLEARED!
->>"%RESULTS%" echo Test 20 successful FirstRun operation completed: !T20_SUCCESS_OPERATION!
->>"%RESULTS%" echo Test 20 successful FirstRun payload launched:    !T20_SUCCESS_PAYLOAD!
->>"%RESULTS%" echo Test 20 successful launcher exit code:           !T20_SUCCESS_EXIT!
->>"%RESULTS%" echo Test 21 payload ran before cleanup:              !T21_PAYLOAD!
->>"%RESULTS%" echo Test 21 protected Root directory preserved:      !T21_ROOT!
->>"%RESULTS%" echo Test 21 protected Root sentinel preserved:       !T21_SENTINEL!
->>"%RESULTS%" echo Test 21 launcher exit code:                      !T21_EXIT!
->>"%RESULTS%" echo Test 22 fallback stored in supplied Temp:        !T22_SUPPLIED_TEMP!
->>"%RESULTS%" echo Test 22 wrong global temp unused:                 !T22_WRONG_GLOBAL!
->>"%RESULTS%" echo Test 22 helper probe exit code:                   !T22_EXIT!
->>"%RESULTS%" echo Test 23 payload started before splash timeout:    !T23_START!
->>"%RESULTS%" echo Test 24 configured splash title used:             !T24_TITLE!
->>"%RESULTS%" echo Test 24 configured splash width used:             !T24_WIDTH!
->>"%RESULTS%" echo Test 24 configured splash height used:            !T24_HEIGHT!
->>"%RESULTS%" echo Test 24 natural-size image fixture created:        !T24_FIXTURE!
->>"%RESULTS%" echo Test 24 image dimensions detected:                 !T24_DETECT!
->>"%RESULTS%" echo Test 24 blank width used natural image width:      !T24_NATURAL_WIDTH!
->>"%RESULTS%" echo Test 24 blank height used natural image height:    !T24_NATURAL_HEIGHT!
->>"%RESULTS%" echo Test 24 width-only aspect ratio preserved:         !T24_WIDTH_ASPECT!
->>"%RESULTS%" echo Test 24 height-only aspect ratio preserved:        !T24_HEIGHT_ASPECT!
->>"%RESULTS%" echo Test 24 helper probe exit code:                   !T24_EXIT!
->>"%RESULTS%" echo Test 25 automatic LANG value retained:            !T25_LANG!
->>"%RESULTS%" echo Test 25 payload launched:                         !T25_PAYLOAD!
->>"%RESULTS%" echo Test 25 launcher exit code:                       !T25_EXIT!
->>"%RESULTS%" echo Test 26 documented Timeout key read first:        !T26_STANDARD!
->>"%RESULTS%" echo Test 26 legacy trailing-space fallback retained:  !T26_LEGACY!
->>"%RESULTS%" echo Test 26 helper probe exit code:                   !T26_EXIT!
->>"%RESULTS%" echo Test 27 milliseconds converted to seconds:        !T27_CONVERTED!
->>"%RESULTS%" echo Test 27 TrayTip uses converted timeout:            !T27_TRAYTIP!
->>"%RESULTS%" echo Test 27 callback retains millisecond timeout:      !T27_CALLBACK!
->>"%RESULTS%" echo Test 27 helper probe exit code:                   !T27_EXIT!
->>"%RESULTS%" echo Test 28 configured replacement count honored:      !T28_LIMITED!
->>"%RESULTS%" echo Test 28 limited replacement reports success:       !T28_STATUS!
->>"%RESULTS%" echo Test 28 helper probe exit code:                     !T28_EXIT!
->>"%RESULTS%" echo Test 29 helper payload compiled:                     !T29_COMPILE!
->>"%RESULTS%" echo Test 29 exact argument count retained:               !T29_COUNT!
->>"%RESULTS%" echo Test 29 leading-option argument retained:            !T29_OPTION!
->>"%RESULTS%" echo Test 29 literal ampersand argument retained:         !T29_META!
->>"%RESULTS%" echo Test 29 hidden EXE launcher exit code:               !T29_EXIT!
->>"%RESULTS%" echo Test 29 forwarded option kept as one argument:       !T29_FORWARD_COUNT!
->>"%RESULTS%" echo Test 29 forwarded option value retained:             !T29_FORWARD_VALUE!
->>"%RESULTS%" echo Test 29 forwarded-argument launcher exit code:       !T29_FORWARD_EXIT!
->>"%RESULTS%" echo Test 30 StringReplace exact format preserved:        !T30_STRING!
->>"%RESULTS%" echo Test 30 StringRegExpReplace exact format preserved:  !T30_REGEXP!
->>"%RESULTS%" echo Test 30 WriteToFile exact format preserved:          !T30_FILE!
->>"%RESULTS%" echo Test 30 WriteToPref exact format preserved:          !T30_PREF!
->>"%RESULTS%" echo Test 30 MozPrefs exact format preserved:             !T30_MOZ!
->>"%RESULTS%" echo Test 30 helper probe exit code:                      !T30_EXIT!
->>"%RESULTS%" echo Test 31 User preference exact match only:             !T31_USER!
->>"%RESULTS%" echo Test 31 Global preference exact match only:           !T31_GLOBAL!
->>"%RESULTS%" echo Test 31 helper probe exit code:                       !T31_EXIT!
->>"%RESULTS%" echo Test 32 ordinary path normalized against Root:        !T32_ORDINARY!
->>"%RESULTS%" echo Test 32 wildcard path normalized against Root:        !T32_WILDCARD!
->>"%RESULTS%" echo Test 32 OnlyIfExist independent of working directory: !T32_WORKDIR!
->>"%RESULTS%" echo Test 32 helper probe exit code:                       !T32_EXIT!
->>"%RESULTS%" echo Test 33 FullPath direct UNC retained:                  !T33_FULLPATH!
->>"%RESULTS%" echo Test 33 NormalPath UNC prefix retained:                !T33_NORMALPATH!
->>"%RESULTS%" echo Test 33 forward-slash UNC normalized safely:          !T33_SLASHUNC!
->>"%RESULTS%" echo Test 33 FileInfo UNC parent retained:                  !T33_FILEINFO!
->>"%RESULTS%" echo Test 33 helper probe exit code:                       !T33_EXIT!
->>"%RESULTS%" echo Test 34 valid absolute path rewritten:                 !T34_VALID!
->>"%RESULTS%" echo Test 34 embedded drive-like text preserved:           !T34_EMBEDDED!
->>"%RESULTS%" echo Test 34 URL drive-like segment preserved:             !T34_URL!
->>"%RESULTS%" echo Test 34 non-drive Root rejected safely:               !T34_NONDRIVE!
->>"%RESULTS%" echo Test 34 helper probe exit code:                       !T34_EXIT!
->>"%RESULTS%" echo Test 35 valid child directory renamed:                !T35_VALID!
->>"%RESULTS%" echo Test 35 empty old value preserves profile root:       !T35_EMPTY!
->>"%RESULTS%" echo Test 35 parent traversal source rejected:             !T35_TRAVERSAL!
->>"%RESULTS%" echo Test 35 nested old source rejected:                   !T35_NESTED!
->>"%RESULTS%" echo Test 35 helper probe exit code:                       !T35_EXIT!
->>"%RESULTS%" echo Test 36 valid parent path normalized:                 !T36_VALID!
->>"%RESULTS%" echo Test 36 excessive traversal returns failure:         !T36_FAILURE!
->>"%RESULTS%" echo Test 36 child survives path error:                   !T36_SURVIVES!
->>"%RESULTS%" echo Test 36 helper probe exit code:                       !T36_EXIT!
->>"%RESULTS%" echo Test 37 waits until download completion:                  !T37_WAIT!
->>"%RESULTS%" echo Test 37 async start failure detected:                     !T37_START!
->>"%RESULTS%" echo Test 37 transfer success status checked:                  !T37_STATUS!
->>"%RESULTS%" echo Test 37 downloaded size verified:                        !T37_SIZE!
->>"%RESULTS%" echo Test 37 helper probe exit code:                          !T37_EXIT!
->>"%RESULTS%" echo Test 38 fatal helper returns close code:                    !T38_RETURN!
->>"%RESULTS%" echo Test 38 all fatal callers return immediately:                !T38_CALLERS!
->>"%RESULTS%" echo Test 38 backup restore retained:                            !T38_RESTORE!
->>"%RESULTS%" echo Test 38 helper probe exit code:                             !T38_EXIT!
->>"%RESULTS%" echo Test 39 cancellation state declared:                         !T39_STATE!
->>"%RESULTS%" echo Test 39 Tray Exit signals cancellation:                     !T39_SIGNAL!
->>"%RESULTS%" echo Test 39 JavaGet returns on cancellation:                    !T39_JAVA!
->>"%RESULTS%" echo Test 39 active download stops on cancellation:              !T39_DOWNLOAD!
->>"%RESULTS%" echo Test 39 restore and close path retained:                    !T39_CLEANUP!
->>"%RESULTS%" echo Test 39 helper probe exit code:                             !T39_EXIT!
->>"%RESULTS%" echo Test 40 JavaGet result captured:                          !T40_CAPTURE!
->>"%RESULTS%" echo Test 40 nonzero result propagated:                       !T40_PROPAGATE!
->>"%RESULTS%" echo Test 40 launcher captures Java error:                    !T40_LAUNCHER!
->>"%RESULTS%" echo Test 40 required Java failure stops launch:              !T40_REQUIRED!
->>"%RESULTS%" echo Test 40 optional Java fallback retained:                 !T40_OPTIONAL!
->>"%RESULTS%" echo Test 40 Java path assignment retained:                   !T40_PATH!
->>"%RESULTS%" echo Test 40 helper probe exit code:                          !T40_EXIT!
->>"%RESULTS%" echo Test 41 Misc version helper included:                    !T41_INCLUDE!
->>"%RESULTS%" echo Test 41 VersionCompare used for Java versions:           !T41_COMPARE!
->>"%RESULTS%" echo Test 41 direct version operator removed:                 !T41_DIRECT!
->>"%RESULTS%" echo Test 41 equal versions still prefer host Java:           !T41_EQUAL!
->>"%RESULTS%" echo Test 41 Java result propagation retained:                !T41_RESULT!
->>"%RESULTS%" echo Test 41 helper probe exit code:                          !T41_EXIT!
->>"%RESULTS%" echo Test 42 JavaURL read from application INI:               !T42_URLREAD!
->>"%RESULTS%" echo Test 42 configured URL passed to JavaGet:                !T42_URLPASS!
->>"%RESULTS%" echo Test 42 hidden legacy download URL removed:              !T42_OLDURL!
->>"%RESULTS%" echo Test 42 portable Java takes priority:                    !T42_PRIORITY!
->>"%RESULTS%" echo Test 42 missing JavaURL has explicit result:             !T42_MISSING!
->>"%RESULTS%" echo Test 42 required Java guidance is shown:                 !T42_GUIDANCE!
->>"%RESULTS%" echo Test 42 required Java still stops safely:                !T42_REQUIRED!
->>"%RESULTS%" echo Test 42 optional Java fallback retained:                 !T42_OPTIONAL!
->>"%RESULTS%" echo Test 42 helper probe exit code:                          !T42_EXIT!
->>"%RESULTS%" echo Test 43 ZIP and legacy setup packages accepted:            !T43_PATTERNS!
->>"%RESULTS%" echo Test 43 package staged before live backup:                 !T43_STAGE!
->>"%RESULTS%" echo Test 43 direct ZIP runtime root recognized:                !T43_DIRECT!
->>"%RESULTS%" echo Test 43 wrapped ZIP runtime root recognized:               !T43_WRAPPED!
->>"%RESULTS%" echo Test 43 ambiguous ZIP runtime rejected:                    !T43_AMBIGUOUS!
->>"%RESULTS%" echo Test 43 complete portable runtime backed up:               !T43_BACKUP!
->>"%RESULTS%" echo Test 43 failed install restores complete runtime:           !T43_RESTORE!
->>"%RESULTS%" echo Test 43 setup package preserved during transaction:         !T43_SETUP!
->>"%RESULTS%" echo Test 43 legacy EXE extraction retained:                    !T43_LEGACY!
->>"%RESULTS%" echo Test 43 helper probe exit code:                            !T43_EXIT!
->>"%RESULTS%" echo Test 44 optional JavaURL key documented in template:         !T44_TEMPLATE!
->>"%RESULTS%" echo Test 44 optional JavaPath key documented in template:        !T44_PATHTEMPLATE!
->>"%RESULTS%" echo Test 44 old INI without JavaURL remains compatible:          !T44_OLDINI!
->>"%RESULTS%" echo Test 44 old INI without JavaPath remains compatible:         !T44_OLDPATH!
->>"%RESULTS%" echo Test 44 absolute and quoted JavaPath roots accepted:          !T44_ABSOLUTE!
->>"%RESULTS%" echo Test 44 JavaPath bin and Java executables normalized:         !T44_EXECUTABLE!
->>"%RESULTS%" echo Test 44 relative JavaPath resolved against Root:             !T44_RELATIVE!
->>"%RESULTS%" echo Test 44 JavaPortableLauncher rejected as runtime:             !T44_LAUNCHER!
->>"%RESULTS%" echo Test 44 only HTTP and HTTPS Java URLs accepted:              !T44_URLVALID!
->>"%RESULTS%" echo Test 44 invalid JavaURL has brief required-Java guidance:     !T44_GUIDANCE!
->>"%RESULTS%" echo Test 44 downloaded package uses format-neutral filename:     !T44_FILENAME!
->>"%RESULTS%" echo Test 44 configured JavaURL passed unchanged to downloader:    !T44_URLPASS!
->>"%RESULTS%" echo Test 44 JAVA_HOME system fallback recognized:                !T44_JAVAHOME!
->>"%RESULTS%" echo Test 44 PATH system fallback recognized:                     !T44_PATH!
->>"%RESULTS%" echo Test 44 legacy and modern JavaSoft registry fallbacks:        !T44_REGISTRY!
->>"%RESULTS%" echo Test 44 portable Java remains preferred over system Java:     !T44_PRIORITY!
->>"%RESULTS%" echo Test 44 configured JavaPath has first source priority:         !T44_CONFIGURED!
->>"%RESULTS%" echo Test 44 valid JavaPath bypasses JavaURL and JavaGet writes:    !T44_URLBYPASS!
->>"%RESULTS%" echo Test 44 Java false ignores but retains JavaPath:               !T44_DISABLED!
->>"%RESULTS%" echo Test 44 external JavaPath runtime remains byte-identical:      !T44_READONLY!
->>"%RESULTS%" echo Test 44 helper probe exit code:                               !T44_EXIT!
->>"%RESULTS%" echo Test 45 old INI without TestRun launches normally:             !T45_MISSING!
->>"%RESULTS%" echo Test 45 explicit TestRun false launches normally:              !T45_FALSE!
->>"%RESULTS%" echo Test 45 missing-key launcher exit code:                        !T45_MISSING_EXIT!
->>"%RESULTS%" echo Test 45 false-mode launcher exit code:                         !T45_FALSE_EXIT!
->>"%RESULTS%" echo Test 45 template documents TestRun false:                      !T45_TEMPLATE!
->>"%RESULTS%" echo Test 45 missing TestRun defaults to false:                     !T45_DEFAULT!
->>"%RESULTS%" echo Test 45 blank TestRun falls back to false:                     !T45_BLANK!
->>"%RESULTS%" echo Test 45 valid TestRun modes are case insensitive:              !T45_CASE!
->>"%RESULTS%" echo Test 45 invalid INI value stops safely:                        !T45_INVALID!
->>"%RESULTS%" echo Test 45 direct command line modes are recognized:              !T45_DIRECT!
->>"%RESULTS%" echo Test 45 command line mode overrides INI:                       !T45_OVERRIDE!
->>"%RESULTS%" echo Test 45 selection window exposes four outcomes:                !T45_SELECTOR!
->>"%RESULTS%" echo Test 45 selection cancellation stops launch:                   !T45_SELECT_CANCEL!
->>"%RESULTS%" echo Test 45 confirmation cancellation stops launch:                !T45_CONFIRM_CANCEL!
->>"%RESULTS%" echo Test 45 Trace route and safe Probe/Full stops:                  !T45_STOP!
->>"%RESULTS%" echo Test 45 helper probe exit code:                                !T45_EXIT!
->>"%RESULTS%" echo Test 46 valid Probe completed successfully:                    !T46_VALID_CODE!
->>"%RESULTS%" echo Test 46 invalid Probe returned findings exit code:             !T46_INVALID_CODE!
->>"%RESULTS%" echo Test 46 configured payload was not launched:                   !T46_NO_LAUNCH!
->>"%RESULTS%" echo Test 46 application INIs remained byte-identical:              !T46_INI_SAFE!
->>"%RESULTS%" echo Test 46 configured files and directories were unchanged:       !T46_FILES_SAFE!
->>"%RESULTS%" echo Test 46 Java runtime and setup sources were unchanged:          !T46_JAVA_SAFE!
->>"%RESULTS%" echo Test 46 configured registry state was unchanged:               !T46_REG_SAFE!
->>"%RESULTS%" echo Test 46 valid report and zero-failure summary created:          !T46_REPORT!
->>"%RESULTS%" echo Test 46 invalid core findings reported accurately:             !T46_INVALID_REPORT!
->>"%RESULTS%" echo Test 46 valid environment and operation checks reported:        !T46_OPERATIONS_REPORT!
->>"%RESULTS%" echo Test 46 invalid environment and operations reported:            !T46_INVALID_OPERATIONS!
->>"%RESULTS%" echo Test 46 valid dynamic rewrite and write checks reported:         !T46_DYNAMIC_REPORT!
->>"%RESULTS%" echo Test 46 invalid dynamic section findings reported:               !T46_INVALID_DYNAMIC!
->>"%RESULTS%" echo Test 46 valid Java source and policy checks reported:             !T46_JAVA_REPORT!
->>"%RESULTS%" echo Test 46 invalid Java package and URL findings reported:           !T46_INVALID_JAVA!
->>"%RESULTS%" echo Test 46 valid Probe exit code:                                 !T46_VALID_EXIT!
->>"%RESULTS%" echo Test 46 invalid Probe exit code:                               !T46_INVALID_EXIT!
->>"%RESULTS%" echo Test 47 all Probe cases returned success:                       !T47_EXITS!
->>"%RESULTS%" echo Test 47 X-Launcher variable folder resolved and reported:       !T47_MACRO!
->>"%RESULTS%" echo Test 47 blank key found documented default:                     !T47_DEFAULT!
->>"%RESULTS%" echo Test 47 missing optional path reported as warning:              !T47_MISSING!
->>"%RESULTS%" echo Test 47 unexpected executable name reported as warning:         !T47_INVALID!
->>"%RESULTS%" echo Test 47 environment-expanded absolute path resolved:            !T47_ENV!
->>"%RESULTS%" echo Test 47 configured payloads were not launched:                  !T47_NO_LAUNCH!
->>"%RESULTS%" echo Test 47 Process Monitor fixtures remained byte-identical:       !T47_FILES_SAFE!
->>"%RESULTS%" echo Test 47 optional key and default documented in template:         !T47_TEMPLATE!
->>"%RESULTS%" echo Test 47 direct absolute executable resolution:                  !T47_ABSOLUTE!
->>"%RESULTS%" echo Test 47 Root-relative executable resolution:                    !T47_RELATIVE!
->>"%RESULTS%" echo Test 47 directory executable selection:                         !T47_FOLDER!
->>"%RESULTS%" echo Test 47 direct blank-default resolution:                        !T47_HELPER_DEFAULT!
->>"%RESULTS%" echo Test 47 invalid executable name rejection:                      !T47_HELPER_INVALID!
->>"%RESULTS%" echo Test 47 missing configured path result:                         !T47_HELPER_MISSING!
->>"%RESULTS%" echo Test 47 UNC prefix preservation:                                !T47_UNC!
->>"%RESULTS%" echo Test 47 resolver contains no launch download or EULA action:    !T47_READONLY!
->>"%RESULTS%" echo Test 47 helper probe exit code:                                 !T47_HELPER_EXIT!
->>"%RESULTS%" echo Test 48 report metadata categories totals and privacy:           !T48_REPORT!
->>"%RESULTS%" echo Test 48 file category includes directory creation:               !T48_FILE_CATEGORY!
->>"%RESULTS%" echo Test 48 retained handle captures real application exit code:      !T48_EXITCODE!
->>"%RESULTS%" echo Test 48 launcher application and child process details:          !T48_PROCESS!
->>"%RESULTS%" echo Test 48 finalization no-overwrite guard:                         !T48_FINALIZE!
->>"%RESULTS%" echo Test 48 confirmed Trace enters real lifecycle:                   !T48_ROUTE!
->>"%RESULTS%" echo Test 48 no Process Monitor download or automatic EULA acceptance: !T48_NO_PROCMON!
->>"%RESULTS%" echo Test 48 Process Monitor start and stop request elevation:          !T48_PROCMON_ELEVATION!
->>"%RESULTS%" echo Test 48 verified Process Monitor command contract:                !T48_PROCMON_COMMANDS!
->>"%RESULTS%" echo Test 48 full Process Monitor elevation and licence prompt wait:     !T48_PROCMON_PROMPT_WAIT!
->>"%RESULTS%" echo Test 48 Process Monitor size and free-space safeguards:              !T48_PROCMON_LIMITS!
->>"%RESULTS%" echo Test 48 Process Monitor stop order and native PML path:            !T48_PROCMON_STOP!
->>"%RESULTS%" echo Test 48 Trace session end follows Process Monitor finalization:     !T48_SESSION_END!
->>"%RESULTS%" echo Test 48 missing Process Monitor choice:                          !T48_MISSING!
->>"%RESULTS%" echo Test 48 unique diagnostics session folder:                       !T48_UNIQUE!
->>"%RESULTS%" echo Test 48 PID recording with waited completion:                    !T48_PIDWAIT!
->>"%RESULTS%" echo Test 48 internal diagnostic arguments withheld:                  !T48_ARGS!
->>"%RESULTS%" echo Test 48 helper probe exit code:                                  !T48_HELPER_EXIT!
->>"%RESULTS%" echo Test 48B readable portability report created:                     !T48B_CREATED!
->>"%RESULTS%" echo Test 48B ProcMon XML process-index/PID mapping:                   !T48B_XML!
->>"%RESULTS%" echo Test 48B automatic write-focused destructive ProcMon filter:       !T48B_FILTER!
->>"%RESULTS%" echo Test 48B fast canonical CSV parsing:                              !T48B_FASTCSV!
->>"%RESULTS%" echo Test 48B indexed repeated-target collapse:                       !T48B_INDEXED!
->>"%RESULTS%" echo Test 48B direct REG root parser:                                  !T48B_REGPARSER!
->>"%RESULTS%" echo Test 48B repeated events collapsed by target:                     !T48B_COLLAPSE!
->>"%RESULTS%" echo Test 48B child attribution and unrelated PID exclusion:            !T48B_ATTRIBUTION!
->>"%RESULTS%" echo Test 48B current INI file and registry coverage:                   !T48B_MANAGED!
->>"%RESULTS%" echo Test 48B unmanaged file and registry review visibility:            !T48B_UNMANAGED!
->>"%RESULTS%" echo Test 48B failures residue limitations and privacy disclosure:      !T48B_DISCLOSURE!
->>"%RESULTS%" echo Test 48B helper probe exit code:                                   !T48B_HELPER_EXIT!
->>"%RESULTS%" echo Test 48C Configuration Probe returned exact-missing failure code:   !T48C_PROBE_CODE!
->>"%RESULTS%" echo Test 48C Probe reports wildcard zero-match as NOT USED:              !T48C_PROBE_WILDCARD!
->>"%RESULTS%" echo Test 48C Probe retains exact missing FileMove as FAIL:               !T48C_PROBE_EXACT!
->>"%RESULTS%" echo Test 48C payload launch and launcher exit code:                      !T48C_LAUNCH!
->>"%RESULTS%" echo Test 48C Debug log created:                                         !T48C_DEBUG!
->>"%RESULTS%" echo Test 48C Debug reports wildcard zero-match as SKIP:                 !T48C_WILDCARD_SKIP!
->>"%RESULTS%" echo Test 48C wildcard zero-match is not reported as FAIL:               !T48C_WILDCARD_NO_FAIL!
->>"%RESULTS%" echo Test 48C later RunAfter operation still executed:                    !T48C_CONTINUE!
->>"%RESULTS%" echo Test 48C runtime retains exact missing FileMove as FAIL:             !T48C_EXACT_FAIL!
->>"%RESULTS%" echo Test 48C runtime launcher exit code:                                 !T48C_EXIT!
->>"%RESULTS%" echo Test 48C Configuration Probe exit code:                             !T48C_PROBE_EXIT!
->>"%RESULTS%" echo Test 48D missing option reports backward-compatible false default:  !T48D_PROBE_DEFAULT!
->>"%RESULTS%" echo Test 48D missing option continues after RunAfter failure:            !T48D_DEFAULT_CONTINUE!
->>"%RESULTS%" echo Test 48D default-policy internal Temp cleanup completed:             !T48D_DEFAULT_TEMP!
->>"%RESULTS%" echo Test 48D true-policy Probe returned findings exit code:              !T48D_PROBE_CODE!
->>"%RESULTS%" echo Test 48D true option validated as Boolean:                           !T48D_PROBE_TRUE!
->>"%RESULTS%" echo Test 48D option is recognized instead of reported unknown:           !T48D_PROBE_KNOWN!
->>"%RESULTS%" echo Test 48D Probe left host registry unchanged:                         !T48D_PROBE_REGISTRY!
->>"%RESULTS%" echo Test 48D payload observed portable registry state:                   !T48D_PORTABLE!
->>"%RESULTS%" echo Test 48D wildcard SKIP did not stop next operation:                  !T48D_SKIP_CONTINUE!
->>"%RESULTS%" echo Test 48D genuine failure stopped later configured operation:         !T48D_STOPPED!
->>"%RESULTS%" echo Test 48D mandatory registry restoration still completed:             !T48D_REGISTRY!
->>"%RESULTS%" echo Test 48D mandatory internal Temp cleanup still completed:            !T48D_TEMP!
->>"%RESULTS%" echo Test 48D Debug retained wildcard no-match SKIP:                      !T48D_WILDCARD_SKIP!
->>"%RESULTS%" echo Test 48D Debug retained exact missing-source FAIL:                   !T48D_EXACT_FAIL!
->>"%RESULTS%" echo Test 48D Debug explains why remaining operations stopped:            !T48D_DEBUG_STOP!
->>"%RESULTS%" echo Test 48D template documents backward-compatible false default:      !T48D_TEMPLATE!
->>"%RESULTS%" echo Test 48D default-policy launcher exit code:                          !T48D_DEFAULT_EXIT!
->>"%RESULTS%" echo Test 48D default-policy Configuration Probe exit code:               !T48D_DEFAULT_PROBE_EXIT!
->>"%RESULTS%" echo Test 48D true-policy launcher exit code:                             !T48D_STOP_EXIT!
->>"%RESULTS%" echo Test 48D true-policy Configuration Probe exit code:                  !T48D_STOP_PROBE_EXIT!
->>"%RESULTS%" echo Test 48E missing options report false defaults:                       !T48E_PROBE_DEFAULT!
->>"%RESULTS%" echo Test 48E missing options retain inherited environment:                !T48E_DEFAULT_RUNTIME!
->>"%RESULTS%" echo Test 48E false defaults create no portable directories:               !T48E_DEFAULT_DIRECTORIES!
->>"%RESULTS%" echo Test 48E true options validate as Booleans:                           !T48E_PROBE_TRUE!
->>"%RESULTS%" echo Test 48E options are recognized rather than unknown:                  !T48E_PROBE_KNOWN!
->>"%RESULTS%" echo Test 48E enabled child received all three portable variables:         !T48E_ENABLED_RUNTIME!
->>"%RESULTS%" echo Test 48E enabled portable directories existed before launch:          !T48E_ENABLED_DIRECTORIES!
->>"%RESULTS%" echo Test 48E Debug reports LOCALAPPDATA TEMP and TMP success:              !T48E_DEBUG!
->>"%RESULTS%" echo Test 48E explicit Environment values take priority:                   !T48E_OVERRIDE_RUNTIME!
->>"%RESULTS%" echo Test 48E template contains backward-compatible false defaults:       !T48E_TEMPLATE!
->>"%RESULTS%" echo Test 48E README distinguishes redirection from cleanup:               !T48E_DOCS!
->>"%RESULTS%" echo Test 48E default launcher exit code:                                  !T48E_DEFAULT_EXIT!
->>"%RESULTS%" echo Test 48E default Configuration Probe exit code:                       !T48E_DEFAULT_PROBE_EXIT!
->>"%RESULTS%" echo Test 48E enabled launcher exit code:                                  !T48E_ENABLED_EXIT!
->>"%RESULTS%" echo Test 48E enabled Configuration Probe exit code:                       !T48E_ENABLED_PROBE_EXIT!
->>"%RESULTS%" echo Test 48E override launcher exit code:                                 !T48E_OVERRIDE_EXIT!
->>"%RESULTS%" echo Test 48F combined environment reached the payload:                    !T48F_ENVIRONMENT!
->>"%RESULTS%" echo Test 48F profile config retained the correct AppData name:            !T48F_CONFIG!
->>"%RESULTS%" echo Test 48F Debug retained the correct portable APPDATA:                 !T48F_DEBUG!
->>"%RESULTS%" echo Test 48F profile config remained byte-stable across two launches:     !T48F_STABLE!
->>"%RESULTS%" echo Test 48F first launcher exit code:                                    !T48F_FIRST_EXIT!
->>"%RESULTS%" echo Test 48F second launcher exit code:                                   !T48F_SECOND_EXIT!
->>"%RESULTS%" echo Test 49 Full Test launcher exit code:                             !T49_EXIT!
->>"%RESULTS%" echo Test 49 report structure and zero failures:                       !T49_REPORT!
->>"%RESULTS%" echo Test 49 private self-helper command and exit contracts:            !T49_HELPER!
->>"%RESULTS%" echo Test 49 launch failure and concurrent process behaviour:             !T49_PROCESS!
->>"%RESULTS%" echo Test 49 isolated file-system operations and safety:                  !T49_FILESYSTEM!
->>"%RESULTS%" echo Test 49 text encoding and line-ending preservation:                  !T49_TEXTFORMAT!
->>"%RESULTS%" echo Test 49 isolated INI preference and REG writer semantics:             !T49_WRITERS!
->>"%RESULTS%" echo Test 49 isolated registry views transactions restore and recovery:     !T49_REGISTRY_STAGE6F!
->>"%RESULTS%" echo Test 49 isolated environment and path expansion:                        !T49_ENVPATH_STAGE6G!
->>"%RESULTS%" echo Test 49 isolated path traversal profile and cleanup safety:              !T49_PATHSAFETY_STAGE6H!
->>"%RESULTS%" echo Test 49 isolated splash and TrayTip runtime behavior:                      !T49_SPLASHTRAY_STAGE6I!
->>"%RESULTS%" echo Test 49 isolated JavaPath selection and read-only behavior:                 !T49_JAVAPATH_STAGE6J!
->>"%RESULTS%" echo Test 49 isolated Java package transaction and rollback behavior:            !T49_JAVATRANSACTION_STAGE6K!
->>"%RESULTS%" echo Test 49 isolated Debug result reporting classifications and state restore:    !T49_DEBUGREPORT_STAGE6L!
->>"%RESULTS%" echo Test 49 isolated Configuration Probe parser cross-checks and read-only proof: !T49_PROBEPARSER_STAGE6M!
->>"%RESULTS%" echo Test 49 configured INI is context only:                           !T49_ISOLATION!
->>"%RESULTS%" echo Test 49 configured files and operations untouched:                !T49_ISOLATION_FILES!
->>"%RESULTS%" echo Test 49 host registry sentinel untouched:                         !T49_REGISTRY!
->>"%RESULTS%" echo Test 49 isolated workspace and HKCU root removed:                 !T49_CLEANUP!
->>"%RESULTS%" echo Test 49 privacy warning present:                                  !T49_PRIVACY!
->>"%RESULTS%" echo Test 49 Full Test is independent of a missing application INI:     !T49_NOINI!
->>"%RESULTS%" echo Test 49 no-INI launcher exit code:                                 !T49_NOINI_EXIT_CHECK!
->>"%RESULTS%" echo Test 49 missing INI remained absent:                               !T49_NOINI_MISSING!
->>"%RESULTS%" echo Test 49 no-INI report was created:                                 !T49_NOINI_REPORT_CHECK!
->>"%RESULTS%" echo Test 49 no-INI report contains zero failures:                      !T49_NOINI_ZERO!
->>"%RESULTS%" echo Test 49 no-INI path recorded as context only:                      !T49_NOINI_CONTEXT!
->>"%RESULTS%" echo Test 50 corrected false value accepted:                            !T50_CORRECTED_FALSE!
->>"%RESULTS%" echo Test 50 corrected true value accepted:                             !T50_CORRECTED_TRUE!
->>"%RESULTS%" echo Test 50 former misspelling rejected:                               !T50_FORMER!
->>"%RESULTS%" echo Test 50 invalid corrected value uses default:                      !T50_INVALID!
->>"%RESULTS%" echo Test 50 helper exit code:                                           !T50_EXIT!
->>"%RESULTS%" echo Test 50 corrected-false resolved value:                             !T50_VALUE_CORRECTED_FALSE!
->>"%RESULTS%" echo Test 50 corrected-true resolved value:                              !T50_VALUE_CORRECTED_TRUE!
->>"%RESULTS%" echo Test 50 former-only resolved value:                                 !T50_VALUE_FORMER!
->>"%RESULTS%" echo Test 50 invalid-corrected resolved value:                           !T50_VALUE_INVALID!
->>"%RESULTS%" echo Test 51 x-udf source readable:                                      !T51_READ!
->>"%RESULTS%" echo Test 51 AddFonts pointer-sized signature:                          !T51_ADD!
->>"%RESULTS%" echo Test 51 RemoveFonts pointer-sized signature:                       !T51_REMOVE!
->>"%RESULTS%" echo Test 51 legacy signature absent:                                   !T51_LEGACY!
->>"%RESULTS%" echo Test 51 helper exit code:                                           !T51_EXIT!
->>"%RESULTS%" echo Test 52A launcher exit code:                                        !T52A_EXIT!
->>"%RESULTS%" echo Test 52A target received payload write:                             !T52A_TARGET!
->>"%RESULTS%" echo Test 52A temporary junction removed:                                !T52A_REMOVED!
->>"%RESULTS%" echo Test 52A creation and cleanup Debug records:                        !T52A_DEBUG!
->>"%RESULTS%" echo Test 52A temporary junction forced RunWait:                         !T52A_FORCED!
->>"%RESULTS%" echo Test 52B launcher exit code:                                        !T52B_EXIT!
->>"%RESULTS%" echo Test 52B target received payload write:                             !T52B_TARGET!
->>"%RESULTS%" echo Test 52B persistent junction remained a reparse point:              !T52B_KEPT!
->>"%RESULTS%" echo Test 52B persistent lifetime and no automatic cleanup:              !T52B_DEBUG!
->>"%RESULTS%" echo Test 52B test cleanup removed only link:                            !T52B_CLEANUP!
->>"%RESULTS%" echo Test 53A launcher exit code:                                        !T53A_EXIT!
->>"%RESULTS%" echo Test 53A symbolic-link test mode:                                   !T53A_MODE!
->>"%RESULTS%" echo Test 53B launcher exit code:                                        !T53B_EXIT!
->>"%RESULTS%" echo Test 53B symbolic-link test mode:                                   !T53B_MODE!
+>>"%RESULTS%" echo Test 02 launcher exit code= !T2EXIT!
+>>"%RESULTS%" echo Test 03B during second instance= !T3B_MID!
+>>"%RESULTS%" echo Test 03B after all instances=    !T3B_END!
+>>"%RESULTS%" echo Test 05 host-key restore=             !T5_RESTORE!
+>>"%RESULTS%" echo Test 05 failure detection=            !T5_DETECT!
+>>"%RESULTS%" echo Test 06 host registry preserved=        !T6_HOST!
+>>"%RESULTS%" echo Test 06 launcher exit code=             !T6EXIT!
+>>"%RESULTS%" echo Test 07 failed backup preserved=        !T7_BACKUP!
+>>"%RESULTS%" echo Test 07 restore failure detected=       !T7_DETECT!
+>>"%RESULTS%" echo Test 08 active view selection=          !T8_ACTIVE!
+>>"%RESULTS%" echo Test 08 32-bit host restored=           !T8_RESTORE32!
+>>"%RESULTS%" echo Test 08 64-bit host untouched=          !T8_RESTORE64!
+>>"%RESULTS%" echo Test 08B active view selection=         !T8B_ACTIVE!
+>>"%RESULTS%" echo Test 08B 64-bit host restored=          !T8B_RESTORE64!
+>>"%RESULTS%" echo Test 08B 32-bit host untouched=         !T8B_RESTORE32!
+>>"%RESULTS%" echo Test 08C native active view=            !T8C_ACTIVE!
+>>"%RESULTS%" echo Test 08C native 64-bit restored=        !T8C_RESTORE64!
+>>"%RESULTS%" echo Test 08C native 32-bit untouched=       !T8C_RESTORE32!
+>>"%RESULTS%" echo Test 09 portable state reached=          !T9_IMPORTED!
+>>"%RESULTS%" echo Test 09 original backup survived crash=  !T9_BACKUP!
+>>"%RESULTS%" echo Test 09 crash state established=         !T9_CRASH_STATE!
+>>"%RESULTS%" echo Test 09 original host recovered=         !T9_RECOVERY!
+>>"%RESULTS%" echo Test 10 permission denial established=    !T10_SETUP!
+>>"%RESULTS%" echo Test 10 original host preserved=          !T10_HOST!
+>>"%RESULTS%" echo Test 10 portable write blocked=           !T10_PORTABLE!
+>>"%RESULTS%" echo Test 10 application launch blocked=       !T10_BLOCKED!
+>>"%RESULTS%" echo Test 10 launcher exit code=                !T10EXIT!
+>>"%RESULTS%" echo Test 11A Auto selected 32-bit view=       !T11A_ACTIVE!
+>>"%RESULTS%" echo Test 11A 32-bit host restored=           !T11A_RESTORE32!
+>>"%RESULTS%" echo Test 11A 64-bit host untouched=          !T11A_RESTORE64!
+>>"%RESULTS%" echo Test 11B Auto selected 64-bit view=       !T11B_ACTIVE!
+>>"%RESULTS%" echo Test 11B 64-bit host restored=           !T11B_RESTORE64!
+>>"%RESULTS%" echo Test 11B 32-bit host untouched=          !T11B_RESTORE32!
+>>"%RESULTS%" echo Test 11C Auto fallback used Native=       !T11C_ACTIVE!
+>>"%RESULTS%" echo Test 11C Native host restored=           !T11C_RESTORE64!
+>>"%RESULTS%" echo Test 11C 32-bit host untouched=          !T11C_RESTORE32!
+>>"%RESULTS%" echo Test 12 both portable roots active=          !T12_ACTIVE!
+>>"%RESULTS%" echo Test 12 first host root restored=           !T12_ROOT1!
+>>"%RESULTS%" echo Test 12 second host root restored=          !T12_ROOT2!
+>>"%RESULTS%" echo Test 12 first portable-only value removed=   !T12_CLEAN1!
+>>"%RESULTS%" echo Test 12 second portable-only value removed=  !T12_CLEAN2!
+>>"%RESULTS%" echo Test 12 both roots saved to portable REG=    !T12_SAVE!
+>>"%RESULTS%" echo Test 13 portable registry state active=       !T13_ACTIVE!
+>>"%RESULTS%" echo Test 13 transaction manifest present=         !T13_MANIFEST!
+>>"%RESULTS%" echo Test 13 ordered backup manifest recorded=     !T13_ORDER!
+>>"%RESULTS%" echo Test 13 original host registry restored=      !T13_RESTORE!
+>>"%RESULTS%" echo Test 14 portable collision keys active=       !T14_ACTIVE!
+>>"%RESULTS%" echo Test 14 backup filenames all unique=          !T14_UNIQUE!
+>>"%RESULTS%" echo Test 14 collision victim host restored=       !T14_VICTIM!
+>>"%RESULTS%" echo Test 14 collision winner host restored=       !T14_WINNER!
+>>"%RESULTS%" echo Test 14 non-colliding host restored=          !T14_SAMPLE!
+>>"%RESULTS%" echo Test 15 generated REG file created=           !T15_FILE!
+>>"%RESULTS%" echo Test 15 generated REG syntax correct=         !T15_SYNTAX!
+>>"%RESULTS%" echo Test 15 generated REG imports successfully=   !T15_IMPORT!
+>>"%RESULTS%" echo Test 15 generated root value correct=         !T15_ROOT!
+>>"%RESULTS%" echo Test 15 generated subkey value correct=       !T15_CHILD!
+>>"%RESULTS%" echo Test 15 application reached generated values=  !T15_ACTIVE!
+>>"%RESULTS%" echo Test 15 host registry cleaned after launch=    !T15_CLEAN!
+>>"%RESULTS%" echo Test 15 launcher exit code=                   !T15_EXIT!
+>>"%RESULTS%" echo Test 16 application launched after DirMove=     !T16_ACTIVE!
+>>"%RESULTS%" echo Test 16 destination conflict preserved=        !T16_DESTCONFLICT!
+>>"%RESULTS%" echo Test 16 non-conflicting file moved=             !T16_MOVED!
+>>"%RESULTS%" echo Test 16 moved file removed from source=         !T16_MOVEDSOURCE!
+>>"%RESULTS%" echo Test 16 unmoved source file preserved=          !T16_SOURCE!
+>>"%RESULTS%" echo Test 16 launcher exit code=                     !T16_EXIT!
+>>"%RESULTS%" echo Test 17 single directory created=                !T17_SINGLE_CREATED!
+>>"%RESULTS%" echo Test 17 successful call reports success=         !T17_SINGLE_STATUS!
+>>"%RESULTS%" echo Test 17 earlier create failure retained=          !T17_FAILURE_RETAINED!
+>>"%RESULTS%" echo Test 17 later valid directories created=          !T17_LATER_CREATED!
+>>"%RESULTS%" echo Test 17 helper probe exit code=                   !T17_EXIT!
+>>"%RESULTS%" echo Test 18 single file deleted=                     !T18_SINGLE_DELETED!
+>>"%RESULTS%" echo Test 18 successful delete reports success=       !T18_SINGLE_STATUS!
+>>"%RESULTS%" echo Test 18 earlier delete failure retained=          !T18_FAILURE_RETAINED!
+>>"%RESULTS%" echo Test 18 failed target preserved=                  !T18_FAILED_PRESERVED!
+>>"%RESULTS%" echo Test 18 later valid file deleted=                 !T18_LATER_DELETED!
+>>"%RESULTS%" echo Test 18 helper probe exit code=                   !T18_EXIT!
+>>"%RESULTS%" echo Test 19 single file copied=                      !T19_SINGLE_COPIED!
+>>"%RESULTS%" echo Test 19 successful copy reports success=         !T19_SINGLE_STATUS!
+>>"%RESULTS%" echo Test 19 earlier copy failure retained=            !T19_FAILURE_RETAINED!
+>>"%RESULTS%" echo Test 19 later valid file copied=                  !T19_LATER_COPIED!
+>>"%RESULTS%" echo Test 19 missing source not fabricated=            !T19_MISSING_ABSENT!
+>>"%RESULTS%" echo Test 19 helper probe exit code=                   !T19_EXIT!
+>>"%RESULTS%" echo Test 20 failed FirstRun remains enabled=          !T20_FAIL_RETAINED!
+>>"%RESULTS%" echo Test 20 payload blocked after FirstRun failure=   !T20_FAIL_BLOCKED!
+>>"%RESULTS%" echo Test 20 successful FirstRun clears flag=         !T20_SUCCESS_CLEARED!
+>>"%RESULTS%" echo Test 20 successful FirstRun operation completed= !T20_SUCCESS_OPERATION!
+>>"%RESULTS%" echo Test 20 successful FirstRun payload launched=    !T20_SUCCESS_PAYLOAD!
+>>"%RESULTS%" echo Test 20 successful launcher exit code=           !T20_SUCCESS_EXIT!
+>>"%RESULTS%" echo Test 21 payload ran before cleanup=              !T21_PAYLOAD!
+>>"%RESULTS%" echo Test 21 protected Root directory preserved=      !T21_ROOT!
+>>"%RESULTS%" echo Test 21 protected Root sentinel preserved=       !T21_SENTINEL!
+>>"%RESULTS%" echo Test 21 launcher exit code=                      !T21_EXIT!
+>>"%RESULTS%" echo Test 22 fallback stored in supplied Temp=        !T22_SUPPLIED_TEMP!
+>>"%RESULTS%" echo Test 22 wrong global temp unused=                 !T22_WRONG_GLOBAL!
+>>"%RESULTS%" echo Test 22 helper probe exit code=                   !T22_EXIT!
+>>"%RESULTS%" echo Test 23 payload started before splash timeout=    !T23_START!
+>>"%RESULTS%" echo Test 24 configured splash title used=             !T24_TITLE!
+>>"%RESULTS%" echo Test 24 configured splash width used=             !T24_WIDTH!
+>>"%RESULTS%" echo Test 24 configured splash height used=            !T24_HEIGHT!
+>>"%RESULTS%" echo Test 24 natural-size image fixture created=        !T24_FIXTURE!
+>>"%RESULTS%" echo Test 24 image dimensions detected=                 !T24_DETECT!
+>>"%RESULTS%" echo Test 24 blank width used natural image width=      !T24_NATURAL_WIDTH!
+>>"%RESULTS%" echo Test 24 blank height used natural image height=    !T24_NATURAL_HEIGHT!
+>>"%RESULTS%" echo Test 24 width-only aspect ratio preserved=         !T24_WIDTH_ASPECT!
+>>"%RESULTS%" echo Test 24 height-only aspect ratio preserved=        !T24_HEIGHT_ASPECT!
+>>"%RESULTS%" echo Test 24 helper probe exit code=                   !T24_EXIT!
+>>"%RESULTS%" echo Test 25 automatic LANG value retained=            !T25_LANG!
+>>"%RESULTS%" echo Test 25 payload launched=                         !T25_PAYLOAD!
+>>"%RESULTS%" echo Test 25 launcher exit code=                       !T25_EXIT!
+>>"%RESULTS%" echo Test 26 documented Timeout key read first=        !T26_STANDARD!
+>>"%RESULTS%" echo Test 26 legacy trailing-space fallback retained=  !T26_LEGACY!
+>>"%RESULTS%" echo Test 26 helper probe exit code=                   !T26_EXIT!
+>>"%RESULTS%" echo Test 27 milliseconds converted to seconds=        !T27_CONVERTED!
+>>"%RESULTS%" echo Test 27 TrayTip uses converted timeout=            !T27_TRAYTIP!
+>>"%RESULTS%" echo Test 27 callback retains millisecond timeout=      !T27_CALLBACK!
+>>"%RESULTS%" echo Test 27 helper probe exit code=                   !T27_EXIT!
+>>"%RESULTS%" echo Test 28 configured replacement count honored=      !T28_LIMITED!
+>>"%RESULTS%" echo Test 28 limited replacement reports success=       !T28_STATUS!
+>>"%RESULTS%" echo Test 28 helper probe exit code=                     !T28_EXIT!
+>>"%RESULTS%" echo Test 29 helper payload compiled=                     !T29_COMPILE!
+>>"%RESULTS%" echo Test 29 exact argument count retained=               !T29_COUNT!
+>>"%RESULTS%" echo Test 29 leading-option argument retained=            !T29_OPTION!
+>>"%RESULTS%" echo Test 29 literal ampersand argument retained=         !T29_META!
+>>"%RESULTS%" echo Test 29 hidden EXE launcher exit code=               !T29_EXIT!
+>>"%RESULTS%" echo Test 29 forwarded option kept as one argument=       !T29_FORWARD_COUNT!
+>>"%RESULTS%" echo Test 29 forwarded option value retained=             !T29_FORWARD_VALUE!
+>>"%RESULTS%" echo Test 29 forwarded-argument launcher exit code=       !T29_FORWARD_EXIT!
+>>"%RESULTS%" echo Test 30 StringReplace exact format preserved=        !T30_STRING!
+>>"%RESULTS%" echo Test 30 StringRegExpReplace exact format preserved=  !T30_REGEXP!
+>>"%RESULTS%" echo Test 30 WriteToFile exact format preserved=          !T30_FILE!
+>>"%RESULTS%" echo Test 30 WriteToPref exact format preserved=          !T30_PREF!
+>>"%RESULTS%" echo Test 30 MozPrefs exact format preserved=             !T30_MOZ!
+>>"%RESULTS%" echo Test 30 helper probe exit code=                      !T30_EXIT!
+>>"%RESULTS%" echo Test 31 User preference exact match only=             !T31_USER!
+>>"%RESULTS%" echo Test 31 Global preference exact match only=           !T31_GLOBAL!
+>>"%RESULTS%" echo Test 31 helper probe exit code=                       !T31_EXIT!
+>>"%RESULTS%" echo Test 32 ordinary path normalized against Root=        !T32_ORDINARY!
+>>"%RESULTS%" echo Test 32 wildcard path normalized against Root=        !T32_WILDCARD!
+>>"%RESULTS%" echo Test 32 OnlyIfExist independent of working directory= !T32_WORKDIR!
+>>"%RESULTS%" echo Test 32 helper probe exit code=                       !T32_EXIT!
+>>"%RESULTS%" echo Test 33 FullPath direct UNC retained=                  !T33_FULLPATH!
+>>"%RESULTS%" echo Test 33 NormalPath UNC prefix retained=                !T33_NORMALPATH!
+>>"%RESULTS%" echo Test 33 forward-slash UNC normalized safely=          !T33_SLASHUNC!
+>>"%RESULTS%" echo Test 33 FileInfo UNC parent retained=                  !T33_FILEINFO!
+>>"%RESULTS%" echo Test 33 helper probe exit code=                       !T33_EXIT!
+>>"%RESULTS%" echo Test 34 valid absolute path rewritten=                 !T34_VALID!
+>>"%RESULTS%" echo Test 34 embedded drive-like text preserved=           !T34_EMBEDDED!
+>>"%RESULTS%" echo Test 34 URL drive-like segment preserved=             !T34_URL!
+>>"%RESULTS%" echo Test 34 non-drive Root rejected safely=               !T34_NONDRIVE!
+>>"%RESULTS%" echo Test 34 helper probe exit code=                       !T34_EXIT!
+>>"%RESULTS%" echo Test 35 valid child directory renamed=                !T35_VALID!
+>>"%RESULTS%" echo Test 35 empty old value preserves profile root=       !T35_EMPTY!
+>>"%RESULTS%" echo Test 35 parent traversal source rejected=             !T35_TRAVERSAL!
+>>"%RESULTS%" echo Test 35 nested old source rejected=                   !T35_NESTED!
+>>"%RESULTS%" echo Test 35 helper probe exit code=                       !T35_EXIT!
+>>"%RESULTS%" echo Test 36 valid parent path normalized=                 !T36_VALID!
+>>"%RESULTS%" echo Test 36 excessive traversal returns failure=         !T36_FAILURE!
+>>"%RESULTS%" echo Test 36 child survives path error=                   !T36_SURVIVES!
+>>"%RESULTS%" echo Test 36 helper probe exit code=                       !T36_EXIT!
+>>"%RESULTS%" echo Test 37 waits until download completion=                  !T37_WAIT!
+>>"%RESULTS%" echo Test 37 async start failure detected=                     !T37_START!
+>>"%RESULTS%" echo Test 37 transfer success status checked=                  !T37_STATUS!
+>>"%RESULTS%" echo Test 37 downloaded size verified=                        !T37_SIZE!
+>>"%RESULTS%" echo Test 37 helper probe exit code=                          !T37_EXIT!
+>>"%RESULTS%" echo Test 38 fatal helper returns close code=                    !T38_RETURN!
+>>"%RESULTS%" echo Test 38 all fatal callers return immediately=                !T38_CALLERS!
+>>"%RESULTS%" echo Test 38 backup restore retained=                            !T38_RESTORE!
+>>"%RESULTS%" echo Test 38 helper probe exit code=                             !T38_EXIT!
+>>"%RESULTS%" echo Test 39 cancellation state declared=                         !T39_STATE!
+>>"%RESULTS%" echo Test 39 Tray Exit signals cancellation=                     !T39_SIGNAL!
+>>"%RESULTS%" echo Test 39 JavaGet returns on cancellation=                    !T39_JAVA!
+>>"%RESULTS%" echo Test 39 active download stops on cancellation=              !T39_DOWNLOAD!
+>>"%RESULTS%" echo Test 39 restore and close path retained=                    !T39_CLEANUP!
+>>"%RESULTS%" echo Test 39 helper probe exit code=                             !T39_EXIT!
+>>"%RESULTS%" echo Test 40 JavaGet result captured=                          !T40_CAPTURE!
+>>"%RESULTS%" echo Test 40 nonzero result propagated=                       !T40_PROPAGATE!
+>>"%RESULTS%" echo Test 40 launcher captures Java error=                    !T40_LAUNCHER!
+>>"%RESULTS%" echo Test 40 required Java failure stops launch=              !T40_REQUIRED!
+>>"%RESULTS%" echo Test 40 optional Java fallback retained=                 !T40_OPTIONAL!
+>>"%RESULTS%" echo Test 40 Java path assignment retained=                   !T40_PATH!
+>>"%RESULTS%" echo Test 40 helper probe exit code=                          !T40_EXIT!
+>>"%RESULTS%" echo Test 41 Misc version helper included=                    !T41_INCLUDE!
+>>"%RESULTS%" echo Test 41 VersionCompare used for Java versions=           !T41_COMPARE!
+>>"%RESULTS%" echo Test 41 direct version operator removed=                 !T41_DIRECT!
+>>"%RESULTS%" echo Test 41 equal versions still prefer host Java=           !T41_EQUAL!
+>>"%RESULTS%" echo Test 41 Java result propagation retained=                !T41_RESULT!
+>>"%RESULTS%" echo Test 41 helper probe exit code=                          !T41_EXIT!
+>>"%RESULTS%" echo Test 42 JavaURL read from application INI=               !T42_URLREAD!
+>>"%RESULTS%" echo Test 42 configured URL passed to JavaGet=                !T42_URLPASS!
+>>"%RESULTS%" echo Test 42 hidden legacy download URL removed=              !T42_OLDURL!
+>>"%RESULTS%" echo Test 42 portable Java takes priority=                    !T42_PRIORITY!
+>>"%RESULTS%" echo Test 42 missing JavaURL has explicit result=             !T42_MISSING!
+>>"%RESULTS%" echo Test 42 required Java guidance is shown=                 !T42_GUIDANCE!
+>>"%RESULTS%" echo Test 42 required Java still stops safely=                !T42_REQUIRED!
+>>"%RESULTS%" echo Test 42 optional Java fallback retained=                 !T42_OPTIONAL!
+>>"%RESULTS%" echo Test 42 helper probe exit code=                          !T42_EXIT!
+>>"%RESULTS%" echo Test 43 ZIP and legacy setup packages accepted=            !T43_PATTERNS!
+>>"%RESULTS%" echo Test 43 package staged before live backup=                 !T43_STAGE!
+>>"%RESULTS%" echo Test 43 direct ZIP runtime root recognized=                !T43_DIRECT!
+>>"%RESULTS%" echo Test 43 wrapped ZIP runtime root recognized=               !T43_WRAPPED!
+>>"%RESULTS%" echo Test 43 ambiguous ZIP runtime rejected=                    !T43_AMBIGUOUS!
+>>"%RESULTS%" echo Test 43 complete portable runtime backed up=               !T43_BACKUP!
+>>"%RESULTS%" echo Test 43 failed install restores complete runtime=           !T43_RESTORE!
+>>"%RESULTS%" echo Test 43 setup package preserved during transaction=         !T43_SETUP!
+>>"%RESULTS%" echo Test 43 legacy EXE extraction retained=                    !T43_LEGACY!
+>>"%RESULTS%" echo Test 43 helper probe exit code=                            !T43_EXIT!
+>>"%RESULTS%" echo Test 44 optional JavaURL key documented in template=         !T44_TEMPLATE!
+>>"%RESULTS%" echo Test 44 optional JavaPath key documented in template=        !T44_PATHTEMPLATE!
+>>"%RESULTS%" echo Test 44 old INI without JavaURL remains compatible=          !T44_OLDINI!
+>>"%RESULTS%" echo Test 44 old INI without JavaPath remains compatible=         !T44_OLDPATH!
+>>"%RESULTS%" echo Test 44 absolute and quoted JavaPath roots accepted=          !T44_ABSOLUTE!
+>>"%RESULTS%" echo Test 44 JavaPath bin and Java executables normalized=         !T44_EXECUTABLE!
+>>"%RESULTS%" echo Test 44 relative JavaPath resolved against Root=             !T44_RELATIVE!
+>>"%RESULTS%" echo Test 44 JavaPortableLauncher rejected as runtime=             !T44_LAUNCHER!
+>>"%RESULTS%" echo Test 44 only HTTP and HTTPS Java URLs accepted=              !T44_URLVALID!
+>>"%RESULTS%" echo Test 44 invalid JavaURL has brief required-Java guidance=     !T44_GUIDANCE!
+>>"%RESULTS%" echo Test 44 downloaded package uses format-neutral filename=     !T44_FILENAME!
+>>"%RESULTS%" echo Test 44 configured JavaURL passed unchanged to downloader=    !T44_URLPASS!
+>>"%RESULTS%" echo Test 44 JAVA_HOME system fallback recognized=                !T44_JAVAHOME!
+>>"%RESULTS%" echo Test 44 PATH system fallback recognized=                     !T44_PATH!
+>>"%RESULTS%" echo Test 44 legacy and modern JavaSoft registry fallbacks=        !T44_REGISTRY!
+>>"%RESULTS%" echo Test 44 portable Java remains preferred over system Java=     !T44_PRIORITY!
+>>"%RESULTS%" echo Test 44 configured JavaPath has first source priority=         !T44_CONFIGURED!
+>>"%RESULTS%" echo Test 44 valid JavaPath bypasses JavaURL and JavaGet writes=    !T44_URLBYPASS!
+>>"%RESULTS%" echo Test 44 Java false ignores but retains JavaPath=               !T44_DISABLED!
+>>"%RESULTS%" echo Test 44 external JavaPath runtime remains byte-identical=      !T44_READONLY!
+>>"%RESULTS%" echo Test 44 helper probe exit code=                               !T44_EXIT!
+>>"%RESULTS%" echo Test 45 old INI without TestRun launches normally=             !T45_MISSING!
+>>"%RESULTS%" echo Test 45 explicit TestRun false launches normally=              !T45_FALSE!
+>>"%RESULTS%" echo Test 45 missing-key launcher exit code=                        !T45_MISSING_EXIT!
+>>"%RESULTS%" echo Test 45 false-mode launcher exit code=                         !T45_FALSE_EXIT!
+>>"%RESULTS%" echo Test 45 template documents TestRun false=                      !T45_TEMPLATE!
+>>"%RESULTS%" echo Test 45 missing TestRun defaults to false=                     !T45_DEFAULT!
+>>"%RESULTS%" echo Test 45 blank TestRun falls back to false=                     !T45_BLANK!
+>>"%RESULTS%" echo Test 45 valid TestRun modes are case insensitive=              !T45_CASE!
+>>"%RESULTS%" echo Test 45 invalid INI value stops safely=                        !T45_INVALID!
+>>"%RESULTS%" echo Test 45 direct command line modes are recognized=              !T45_DIRECT!
+>>"%RESULTS%" echo Test 45 command line mode overrides INI=                       !T45_OVERRIDE!
+>>"%RESULTS%" echo Test 45 selection window exposes four outcomes=                !T45_SELECTOR!
+>>"%RESULTS%" echo Test 45 selection cancellation stops launch=                   !T45_SELECT_CANCEL!
+>>"%RESULTS%" echo Test 45 confirmation cancellation stops launch=                !T45_CONFIRM_CANCEL!
+>>"%RESULTS%" echo Test 45 Trace route and safe Probe/Full stops=                  !T45_STOP!
+>>"%RESULTS%" echo Test 45 helper probe exit code=                                !T45_EXIT!
+>>"%RESULTS%" echo Test 46 valid Probe completed successfully=                    !T46_VALID_CODE!
+>>"%RESULTS%" echo Test 46 invalid Probe returned findings exit code=             !T46_INVALID_CODE!
+>>"%RESULTS%" echo Test 46 configured payload was not launched=                   !T46_NO_LAUNCH!
+>>"%RESULTS%" echo Test 46 application INIs remained byte-identical=              !T46_INI_SAFE!
+>>"%RESULTS%" echo Test 46 configured files and directories were unchanged=       !T46_FILES_SAFE!
+>>"%RESULTS%" echo Test 46 Java runtime and setup sources were unchanged=          !T46_JAVA_SAFE!
+>>"%RESULTS%" echo Test 46 configured registry state was unchanged=               !T46_REG_SAFE!
+>>"%RESULTS%" echo Test 46 valid report and zero-failure summary created=          !T46_REPORT!
+>>"%RESULTS%" echo Test 46 invalid core findings reported accurately=             !T46_INVALID_REPORT!
+>>"%RESULTS%" echo Test 46 valid environment and operation checks reported=        !T46_OPERATIONS_REPORT!
+>>"%RESULTS%" echo Test 46 Windows environment names and invalid operations reported= !T46_INVALID_OPERATIONS!
+>>"%RESULTS%" echo Test 46 DirRemove modes and absent targets in supported sections= !T46_DIRREMOVE_REPORT!
+>>"%RESULTS%" echo Test 46 valid dynamic rewrite and write checks reported=         !T46_DYNAMIC_REPORT!
+>>"%RESULTS%" echo Test 46 invalid dynamic section findings reported=               !T46_INVALID_DYNAMIC!
+>>"%RESULTS%" echo Test 46 valid Java source and policy checks reported=             !T46_JAVA_REPORT!
+>>"%RESULTS%" echo Test 46 invalid Java package and URL findings reported=           !T46_INVALID_JAVA!
+>>"%RESULTS%" echo Test 46 summary repeats only ordered FAIL and WARN findings=       !T46_ATTENTION_SUMMARY!
+>>"%RESULTS%" echo Test 46 Configuration Probe reports use the .log extension=        !T46_REPORT_EXTENSION!
+>>"%RESULTS%" echo Test 46 valid Probe exit code=                                 !T46_VALID_EXIT!
+>>"%RESULTS%" echo Test 46 invalid Probe exit code=                               !T46_INVALID_EXIT!
+>>"%RESULTS%" echo Test 47 all Probe cases returned success=                       !T47_EXITS!
+>>"%RESULTS%" echo Test 47 X-Launcher variable folder resolved and reported=       !T47_MACRO!
+>>"%RESULTS%" echo Test 47 blank key found documented default=                     !T47_DEFAULT!
+>>"%RESULTS%" echo Test 47 missing optional path reported as warning=              !T47_MISSING!
+>>"%RESULTS%" echo Test 47 unexpected executable name reported as warning=         !T47_INVALID!
+>>"%RESULTS%" echo Test 47 environment-expanded absolute path resolved=            !T47_ENV!
+>>"%RESULTS%" echo Test 47 configured payloads were not launched=                  !T47_NO_LAUNCH!
+>>"%RESULTS%" echo Test 47 Process Monitor fixtures remained byte-identical=       !T47_FILES_SAFE!
+>>"%RESULTS%" echo Test 47 optional key and default documented in template=         !T47_TEMPLATE!
+>>"%RESULTS%" echo Test 47 direct absolute executable resolution=                  !T47_ABSOLUTE!
+>>"%RESULTS%" echo Test 47 Root-relative executable resolution=                    !T47_RELATIVE!
+>>"%RESULTS%" echo Test 47 directory executable selection=                         !T47_FOLDER!
+>>"%RESULTS%" echo Test 47 direct blank-default resolution=                        !T47_HELPER_DEFAULT!
+>>"%RESULTS%" echo Test 47 invalid executable name rejection=                      !T47_HELPER_INVALID!
+>>"%RESULTS%" echo Test 47 missing configured path result=                         !T47_HELPER_MISSING!
+>>"%RESULTS%" echo Test 47 UNC prefix preservation=                                !T47_UNC!
+>>"%RESULTS%" echo Test 47 resolver contains no launch download or EULA action=    !T47_READONLY!
+>>"%RESULTS%" echo Test 47 helper probe exit code=                                 !T47_HELPER_EXIT!
+>>"%RESULTS%" echo Test 48 report metadata categories totals and privacy=           !T48_REPORT!
+>>"%RESULTS%" echo Test 48 file category includes directory creation=               !T48_FILE_CATEGORY!
+>>"%RESULTS%" echo Test 48 retained handle captures real application exit code=      !T48_EXITCODE!
+>>"%RESULTS%" echo Test 48 launcher application and child process details=          !T48_PROCESS!
+>>"%RESULTS%" echo Test 48 finalization no-overwrite guard=                         !T48_FINALIZE!
+>>"%RESULTS%" echo Test 48 confirmed Trace enters real lifecycle=                   !T48_ROUTE!
+>>"%RESULTS%" echo Test 48 no Process Monitor download or automatic EULA acceptance= !T48_NO_PROCMON!
+>>"%RESULTS%" echo Test 48 Process Monitor start and stop request elevation=          !T48_PROCMON_ELEVATION!
+>>"%RESULTS%" echo Test 48 verified Process Monitor command contract=                !T48_PROCMON_COMMANDS!
+>>"%RESULTS%" echo Test 48 full Process Monitor elevation and licence prompt wait=     !T48_PROCMON_PROMPT_WAIT!
+>>"%RESULTS%" echo Test 48 Process Monitor size and free-space safeguards=              !T48_PROCMON_LIMITS!
+>>"%RESULTS%" echo Test 48 Process Monitor stop order and native PML path=            !T48_PROCMON_STOP!
+>>"%RESULTS%" echo Test 48 Trace session end follows Process Monitor finalization=     !T48_SESSION_END!
+>>"%RESULTS%" echo Test 48 missing Process Monitor choice=                          !T48_MISSING!
+>>"%RESULTS%" echo Test 48 unique diagnostics session folder=                       !T48_UNIQUE!
+>>"%RESULTS%" echo Test 48 PID recording with waited completion=                    !T48_PIDWAIT!
+>>"%RESULTS%" echo Test 48 internal diagnostic arguments withheld=                  !T48_ARGS!
+>>"%RESULTS%" echo Test 48 completed portability report auto-open and fallback=      !T48_AUTO_OPEN!
+>>"%RESULTS%" echo Test 48 helper probe exit code=                                  !T48_HELPER_EXIT!
+>>"%RESULTS%" echo Test 48B readable portability report created=                     !T48B_CREATED!
+>>"%RESULTS%" echo Test 48B ProcMon XML process-index/PID mapping=                   !T48B_XML!
+>>"%RESULTS%" echo Test 48B automatic write-focused destructive ProcMon filter=       !T48B_FILTER!
+>>"%RESULTS%" echo Test 48B fast canonical CSV parsing=                              !T48B_FASTCSV!
+>>"%RESULTS%" echo Test 48B indexed repeated-target collapse=                       !T48B_INDEXED!
+>>"%RESULTS%" echo Test 48B direct REG root parser=                                  !T48B_REGPARSER!
+>>"%RESULTS%" echo Test 48B repeated events collapsed by target=                     !T48B_COLLAPSE!
+>>"%RESULTS%" echo Test 48B child attribution and unrelated PID exclusion=            !T48B_ATTRIBUTION!
+>>"%RESULTS%" echo Test 48B current INI file and registry coverage=                   !T48B_MANAGED!
+>>"%RESULTS%" echo Test 48B unmanaged file and registry review visibility=            !T48B_UNMANAGED!
+>>"%RESULTS%" echo Test 48B failures residue limitations and privacy disclosure=      !T48B_DISCLOSURE!
+>>"%RESULTS%" echo Test 48B portability report key-value separators=                   !T48B_FORMAT!
+>>"%RESULTS%" echo Test 48B helper probe exit code=                                   !T48B_HELPER_EXIT!
+>>"%RESULTS%" echo Test 48C Configuration Probe returned exact-missing failure code=   !T48C_PROBE_CODE!
+>>"%RESULTS%" echo Test 48C Probe reports wildcard zero-match as NOT USED=              !T48C_PROBE_WILDCARD!
+>>"%RESULTS%" echo Test 48C Probe retains exact missing FileMove as FAIL=               !T48C_PROBE_EXACT!
+>>"%RESULTS%" echo Test 48C payload launch and launcher exit code=                      !T48C_LAUNCH!
+>>"%RESULTS%" echo Test 48C Debug log created=                                         !T48C_DEBUG!
+>>"%RESULTS%" echo Test 48C Debug reports wildcard zero-match as SKIP=                 !T48C_WILDCARD_SKIP!
+>>"%RESULTS%" echo Test 48C wildcard zero-match is not reported as FAIL=               !T48C_WILDCARD_NO_FAIL!
+>>"%RESULTS%" echo Test 48C later RunAfter operation still executed=                    !T48C_CONTINUE!
+>>"%RESULTS%" echo Test 48C runtime retains exact missing FileMove as FAIL=             !T48C_EXACT_FAIL!
+>>"%RESULTS%" echo Test 48C runtime launcher exit code=                                 !T48C_EXIT!
+>>"%RESULTS%" echo Test 48C Configuration Probe exit code=                             !T48C_PROBE_EXIT!
+>>"%RESULTS%" echo Test 48D missing option reports backward-compatible false default=  !T48D_PROBE_DEFAULT!
+>>"%RESULTS%" echo Test 48D missing option continues after RunAfter failure=            !T48D_DEFAULT_CONTINUE!
+>>"%RESULTS%" echo Test 48D default-policy internal Temp cleanup completed=             !T48D_DEFAULT_TEMP!
+>>"%RESULTS%" echo Test 48D true-policy Probe returned findings exit code=              !T48D_PROBE_CODE!
+>>"%RESULTS%" echo Test 48D true option validated as Boolean=                           !T48D_PROBE_TRUE!
+>>"%RESULTS%" echo Test 48D option is recognized instead of reported unknown=           !T48D_PROBE_KNOWN!
+>>"%RESULTS%" echo Test 48D Probe left host registry unchanged=                         !T48D_PROBE_REGISTRY!
+>>"%RESULTS%" echo Test 48D payload observed portable registry state=                   !T48D_PORTABLE!
+>>"%RESULTS%" echo Test 48D wildcard SKIP did not stop next operation=                  !T48D_SKIP_CONTINUE!
+>>"%RESULTS%" echo Test 48D genuine failure stopped later configured operation=         !T48D_STOPPED!
+>>"%RESULTS%" echo Test 48D mandatory registry restoration still completed=             !T48D_REGISTRY!
+>>"%RESULTS%" echo Test 48D mandatory internal Temp cleanup still completed=            !T48D_TEMP!
+>>"%RESULTS%" echo Test 48D Debug retained wildcard no-match SKIP=                      !T48D_WILDCARD_SKIP!
+>>"%RESULTS%" echo Test 48D Debug retained exact missing-source FAIL=                   !T48D_EXACT_FAIL!
+>>"%RESULTS%" echo Test 48D Debug explains why remaining operations stopped=            !T48D_DEBUG_STOP!
+>>"%RESULTS%" echo Test 48D template documents backward-compatible false default=      !T48D_TEMPLATE!
+>>"%RESULTS%" echo Test 48D default-policy launcher exit code=                          !T48D_DEFAULT_EXIT!
+>>"%RESULTS%" echo Test 48D default-policy Configuration Probe exit code=               !T48D_DEFAULT_PROBE_EXIT!
+>>"%RESULTS%" echo Test 48D true-policy launcher exit code=                             !T48D_STOP_EXIT!
+>>"%RESULTS%" echo Test 48D true-policy Configuration Probe exit code=                  !T48D_STOP_PROBE_EXIT!
+>>"%RESULTS%" echo Test 48E missing options report false defaults=                       !T48E_PROBE_DEFAULT!
+>>"%RESULTS%" echo Test 48E missing options retain inherited environment=                !T48E_DEFAULT_RUNTIME!
+>>"%RESULTS%" echo Test 48E false defaults create no portable directories=               !T48E_DEFAULT_DIRECTORIES!
+>>"%RESULTS%" echo Test 48E true options validate as Booleans=                           !T48E_PROBE_TRUE!
+>>"%RESULTS%" echo Test 48E options are recognized rather than unknown=                  !T48E_PROBE_KNOWN!
+>>"%RESULTS%" echo Test 48E enabled child received all three portable variables=         !T48E_ENABLED_RUNTIME!
+>>"%RESULTS%" echo Test 48E enabled portable directories existed before launch=          !T48E_ENABLED_DIRECTORIES!
+>>"%RESULTS%" echo Test 48E Debug reports LOCALAPPDATA TEMP and TMP success=              !T48E_DEBUG!
+>>"%RESULTS%" echo Test 48E explicit Environment values take priority=                   !T48E_OVERRIDE_RUNTIME!
+>>"%RESULTS%" echo Test 48E template contains backward-compatible false defaults=       !T48E_TEMPLATE!
+>>"%RESULTS%" echo Test 48E README distinguishes redirection from cleanup=               !T48E_DOCS!
+>>"%RESULTS%" echo Test 48E default launcher exit code=                                  !T48E_DEFAULT_EXIT!
+>>"%RESULTS%" echo Test 48E default Configuration Probe exit code=                       !T48E_DEFAULT_PROBE_EXIT!
+>>"%RESULTS%" echo Test 48E enabled launcher exit code=                                  !T48E_ENABLED_EXIT!
+>>"%RESULTS%" echo Test 48E enabled Configuration Probe exit code=                       !T48E_ENABLED_PROBE_EXIT!
+>>"%RESULTS%" echo Test 48E override launcher exit code=                                 !T48E_OVERRIDE_EXIT!
+>>"%RESULTS%" echo Test 48F combined environment reached the payload=                    !T48F_ENVIRONMENT!
+>>"%RESULTS%" echo Test 48F profile config retained the correct AppData name=            !T48F_CONFIG!
+>>"%RESULTS%" echo Test 48F Debug retained the correct portable APPDATA=                 !T48F_DEBUG!
+>>"%RESULTS%" echo Test 48F Debug timestamp separator uses equals=                       !T48F_DEBUG_FORMAT!
+>>"%RESULTS%" echo Test 48F Log retained the full portable APPDATA path=                  !T48F_LOG!
+>>"%RESULTS%" echo Test 48F PROGRAMFILES(x86) reached the payload and Debug=             !T48F_PROGRAMFILES!
+>>"%RESULTS%" echo Test 48F profile config remained byte-stable across two launches=     !T48F_STABLE!
+>>"%RESULTS%" echo Test 48F first launcher exit code=                                    !T48F_FIRST_EXIT!
+>>"%RESULTS%" echo Test 48F second launcher exit code=                                   !T48F_SECOND_EXIT!
+>>"%RESULTS%" echo Test 49 Full Test launcher exit code=                             !T49_EXIT!
+>>"%RESULTS%" echo Test 49 report structure and zero failures=                       !T49_REPORT!
+>>"%RESULTS%" echo Test 49 private self-helper command and exit contracts=            !T49_HELPER!
+>>"%RESULTS%" echo Test 49 launch failure and concurrent process behaviour=             !T49_PROCESS!
+>>"%RESULTS%" echo Test 49 isolated file-system operations and safety=                  !T49_FILESYSTEM!
+>>"%RESULTS%" echo Test 49 text encoding and line-ending preservation=                  !T49_TEXTFORMAT!
+>>"%RESULTS%" echo Test 49 isolated INI preference and REG writer semantics=             !T49_WRITERS!
+>>"%RESULTS%" echo Test 49 isolated registry views transactions restore and recovery=     !T49_REGISTRY_STAGE6F!
+>>"%RESULTS%" echo Test 49 isolated environment and path expansion=                        !T49_ENVPATH_STAGE6G!
+>>"%RESULTS%" echo Test 49 isolated path traversal profile and cleanup safety=              !T49_PATHSAFETY_STAGE6H!
+>>"%RESULTS%" echo Test 49 isolated splash and TrayTip runtime behavior=                      !T49_SPLASHTRAY_STAGE6I!
+>>"%RESULTS%" echo Test 49 isolated JavaPath selection and read-only behavior=                 !T49_JAVAPATH_STAGE6J!
+>>"%RESULTS%" echo Test 49 isolated Java package transaction and rollback behavior=            !T49_JAVATRANSACTION_STAGE6K!
+>>"%RESULTS%" echo Test 49 isolated Debug result reporting classifications and state restore=    !T49_DEBUGREPORT_STAGE6L!
+>>"%RESULTS%" echo Test 49 isolated Configuration Probe parser cross-checks and read-only proof= !T49_PROBEPARSER_STAGE6M!
+>>"%RESULTS%" echo Test 49 configured INI is context only=                           !T49_ISOLATION!
+>>"%RESULTS%" echo Test 49 configured files and operations untouched=                !T49_ISOLATION_FILES!
+>>"%RESULTS%" echo Test 49 host registry sentinel untouched=                         !T49_REGISTRY!
+>>"%RESULTS%" echo Test 49 isolated workspace and HKCU root removed=                 !T49_CLEANUP!
+>>"%RESULTS%" echo Test 49 privacy warning present=                                  !T49_PRIVACY!
+>>"%RESULTS%" echo Test 49 Full Test is independent of a missing application INI=     !T49_NOINI!
+>>"%RESULTS%" echo Test 49 no-INI launcher exit code=                                 !T49_NOINI_EXIT_CHECK!
+>>"%RESULTS%" echo Test 49 missing INI remained absent=                               !T49_NOINI_MISSING!
+>>"%RESULTS%" echo Test 49 no-INI report was created=                                 !T49_NOINI_REPORT_CHECK!
+>>"%RESULTS%" echo Test 49 no-INI report contains zero failures=                      !T49_NOINI_ZERO!
+>>"%RESULTS%" echo Test 49 no-INI path recorded as context only=                      !T49_NOINI_CONTEXT!
+>>"%RESULTS%" echo Test 50 corrected false value accepted=                            !T50_CORRECTED_FALSE!
+>>"%RESULTS%" echo Test 50 corrected true value accepted=                             !T50_CORRECTED_TRUE!
+>>"%RESULTS%" echo Test 50 former misspelling rejected=                               !T50_FORMER!
+>>"%RESULTS%" echo Test 50 invalid corrected value uses default=                      !T50_INVALID!
+>>"%RESULTS%" echo Test 50 helper exit code=                                           !T50_EXIT!
+>>"%RESULTS%" echo Test 50 corrected-false resolved value=                             !T50_VALUE_CORRECTED_FALSE!
+>>"%RESULTS%" echo Test 50 corrected-true resolved value=                              !T50_VALUE_CORRECTED_TRUE!
+>>"%RESULTS%" echo Test 50 former-only resolved value=                                 !T50_VALUE_FORMER!
+>>"%RESULTS%" echo Test 50 invalid-corrected resolved value=                           !T50_VALUE_INVALID!
+>>"%RESULTS%" echo Test 51 x-udf source readable=                                      !T51_READ!
+>>"%RESULTS%" echo Test 51 AddFonts pointer-sized signature=                          !T51_ADD!
+>>"%RESULTS%" echo Test 51 RemoveFonts pointer-sized signature=                       !T51_REMOVE!
+>>"%RESULTS%" echo Test 51 legacy signature absent=                                   !T51_LEGACY!
+>>"%RESULTS%" echo Test 51 helper exit code=                                           !T51_EXIT!
+>>"%RESULTS%" echo Test 52A launcher exit code=                                        !T52A_EXIT!
+>>"%RESULTS%" echo Test 52A target received payload write=                             !T52A_TARGET!
+>>"%RESULTS%" echo Test 52A temporary junction removed=                                !T52A_REMOVED!
+>>"%RESULTS%" echo Test 52A creation and cleanup Debug records=                        !T52A_DEBUG!
+>>"%RESULTS%" echo Test 52A temporary junction forced RunWait=                         !T52A_FORCED!
+>>"%RESULTS%" echo Test 52B launcher exit code=                                        !T52B_EXIT!
+>>"%RESULTS%" echo Test 52B target received payload write=                             !T52B_TARGET!
+>>"%RESULTS%" echo Test 52B persistent junction remained a reparse point=              !T52B_KEPT!
+>>"%RESULTS%" echo Test 52B persistent lifetime and no automatic cleanup=              !T52B_DEBUG!
+>>"%RESULTS%" echo Test 52B test cleanup removed only link=                            !T52B_CLEANUP!
+>>"%RESULTS%" echo Test 53A launcher exit code=                                        !T53A_EXIT!
+>>"%RESULTS%" echo Test 53A symbolic-link test mode=                                   !T53A_MODE!
+>>"%RESULTS%" echo Test 53B launcher exit code=                                        !T53B_EXIT!
+>>"%RESULTS%" echo Test 53B symbolic-link test mode=                                   !T53B_MODE!
+>>"%RESULTS%" echo Test 54 Probe accepted safe modes and blocked direct Lib removal=   !T54_PROBE!
+>>"%RESULTS%" echo Test 54 all four application payloads launched=                     !T54_PAYLOAD!
+>>"%RESULTS%" echo Test 54 Lib pipe-e removed empty descendants and preserved Lib=     !T54_EMPTY!
+>>"%RESULTS%" echo Test 54 Lib trailing slash removed contents and preserved Lib=      !T54_CONTENTS!
+>>"%RESULTS%" echo Test 54 Lib trailing slash pipe-e preserved non-empty content=      !T54_CONTENTS_EMPTY!
+>>"%RESULTS%" echo Test 54 direct Lib removal was blocked and content survived=        !T54_BLOCKED!
+>>"%RESULTS%" echo Test 54 runtime Debug classified safe and blocked modes=             !T54_DEBUG!
+>>"%RESULTS%" echo Test 54A launcher exit code=                                        !T54A_EXIT!
+>>"%RESULTS%" echo Test 54B launcher exit code=                                        !T54B_EXIT!
+>>"%RESULTS%" echo Test 54C launcher exit code=                                        !T54C_EXIT!
+>>"%RESULTS%" echo Test 54D launcher exit code=                                        !T54D_EXIT!
 
 if !FAILCOUNT! GTR 0 (
     set "SUITE_RC=1"

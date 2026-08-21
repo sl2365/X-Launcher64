@@ -11,13 +11,13 @@ Global $AppVer = '1.0'
 Global $PathToExe = $Root & '\Payload.bat'
 Global $TraceActive = True, $TraceFinalized = False
 Global $TraceSessionDir = @ScriptDir & '\Test_Suite\Working\Test48\Session'
-Global $TraceSummaryPath = $TraceSessionDir & '\Application_Trace_Summary.txt'
+Global $TraceSummaryPath = $TraceSessionDir & '\Application_Trace_Summary.log'
 Global $TraceSettingsPath = $TraceSessionDir & '\X-Launcher_Settings.log'
 Global $TraceStartTime = '2026-08-11 10:00:00.000'
 Global $TraceProcMonPath = '', $TraceProcMonState = 'not available; continued with X-Launcher-only logging'
 Global $TraceProcMonCapturePath = $TraceSessionDir & '\Application_Trace.pml', $TraceProcMonPID = 0
 Global $TraceProcMonCSVPath = $TraceSessionDir & '\Application_Trace.csv'
-Global $TracePortabilityReportPath = $TraceSessionDir & '\Application_Portability_Report.txt'
+Global $TracePortabilityReportPath = $TraceSessionDir & '\Application_Portability_Report.log'
 Global $TracePortabilityState = 'not attempted'
 Global $TraceProcMonCaptureActive = False, $TraceProcMonCaptureSaved = False
 Global $TraceProcMonMaxMB = 512, $TraceProcMonReserveMB = 1024
@@ -27,7 +27,7 @@ Global $TraceProcMonCapturePartial = False, $TraceProcMonPartialReason = ''
 Global $TraceProcMonLimitStopAttempted = False, $TraceProcMonSpaceCheckWarned = False
 Global $TraceApplicationPID = 1234, $TraceApplicationExitCode = 0
 Global $TraceObservedPIDs = '|2345|'
-Global $TraceObservedProcesses = 'PID: 2345; Parent PID: 1234; Name: child.exe; Command line: child.exe --fixture' & @CRLF
+Global $TraceObservedProcesses = 'PID= 2345; Parent PID= 1234; Name= child.exe; Command line= child.exe --fixture' & @CRLF
 Global $TraceProcessObservation = 'available'
 Global $TraceWMI = 0, $TraceCOMErrorObject = 0, $TraceCOMError = False
 Global $Debug = 'true', $DebugFile = $TraceSessionDir & '\X-Launcher_Debug.dbg'
@@ -67,31 +67,31 @@ Local $bReportCreated = _TraceFinalize(False)
 Local $sReport = FileRead($TraceSummaryPath)
 Local $bReportContract = ($bReportCreated And _
 		StringInStr($sReport, 'X-LAUNCHER APPLICATION TRACE', 1) > 0 And _
-		StringInStr($sReport, 'Mode: X-Launcher-only Application Trace (Process Monitor was not started)', 1) > 0 And _
-		StringInStr($sReport, 'Capture safeguards: maximum 512 MiB; reserved free space 1024 MiB', 1) > 0 And _
+		StringInStr($sReport, 'Mode=X-Launcher-only Application Trace (Process Monitor was not started)', 1) > 0 And _
+		StringInStr($sReport, 'Capture safeguards=maximum 512 MiB; reserved free space 1024 MiB', 1) > 0 And _
 		StringInStr($sReport, '[NOT USED] Native Process Monitor capture was not available.', 1) > 0 And _
-		StringInStr($sReport, '[NOT USED] Capture result: no native PML was saved.', 1) > 0 And _
+		StringInStr($sReport, '[NOT USED] Capture result=no native PML was saved.', 1) > 0 And _
 		StringInStr($sReport, 'FILE AND DIRECTORY OPERATIONS (X-LAUNCHER-RECORDED)', 1) > 0 And _
 		StringInStr($sReport, 'REGISTRY OPERATIONS (X-LAUNCHER-RECORDED)', 1) > 0 And _
 		StringInStr($sReport, 'PROCESS ACTIVITY', 1) > 0 And _
 		StringInStr($sReport, 'ERRORS AND WARNINGS', 1) > 0 And _
 		StringInStr($sReport, 'ROOT BOUNDARY AND RESIDUE', 1) > 0 And _
-		StringInStr($sReport, 'Inside Root:', 1) > 0 And _
-		StringInStr($sReport, '[NOT USED] Outside Root:', 1) > 0 And _
-		StringInStr($sReport, '[NOT USED] File residue:', 1) > 0 And _
-		StringInStr($sReport, '[NOT USED] Registry residue:', 1) > 0 And _
-		StringInStr($sReport, 'PASS: 4', 1) > 0 And _
-		StringInStr($sReport, 'WARN: 1', 1) > 0 And _
-		StringInStr($sReport, 'OVERALL: PASS WITH WARNINGS', 1) > 0 And _
-		StringInStr($sReport, 'Privacy: Review usernames, paths, command lines and document names before sharing.', 1) > 0 And _
+		StringInStr($sReport, 'Inside Root=', 1) > 0 And _
+		StringInStr($sReport, '[NOT USED] Outside Root=', 1) > 0 And _
+		StringInStr($sReport, '[NOT USED] File residue=', 1) > 0 And _
+		StringInStr($sReport, '[NOT USED] Registry residue=', 1) > 0 And _
+		StringInStr($sReport, 'PASS=4', 1) > 0 And _
+		StringInStr($sReport, 'WARN=1', 1) > 0 And _
+		StringInStr($sReport, 'OVERALL=PASS WITH WARNINGS', 1) > 0 And _
+		StringInStr($sReport, 'Privacy=Review usernames, paths, command lines and document names before sharing.', 1) > 0 And _
 		StringInStr($sReport, 'ORDERED DIAGNOSTIC DETAIL', 1) > 0)
 _T48WriteResult($sLog, 'Trace summary contains required metadata categories totals privacy and ordered detail', $bReportContract)
 If Not $bReportContract Then $bAllPass = False
 
-Local $bProcessContract = (StringInStr($sReport, 'Launcher PID:', 1) > 0 And _
-		StringInStr($sReport, 'Application launch PID: 1234', 1) > 0 And _
-		StringInStr($sReport, 'PID: 2345; Parent PID: 1234; Name: child.exe', 1) > 0 And _
-		StringInStr($sReport, 'Application exit code: 0', 1) > 0)
+Local $bProcessContract = (StringInStr($sReport, 'Launcher PID=', 1) > 0 And _
+		StringInStr($sReport, 'Application launch PID=1234', 1) > 0 And _
+		StringInStr($sReport, 'PID= 2345; Parent PID= 1234; Name= child.exe', 1) > 0 And _
+		StringInStr($sReport, 'Application exit code=0', 1) > 0)
 _T48WriteResult($sLog, 'Trace summary records launcher application and observed child process details', $bProcessContract)
 If Not $bProcessContract Then $bAllPass = False
 
@@ -190,6 +190,14 @@ Local $sFinalizeSource = ''
 If $iFinalizeStart > 0 And $iFinalizeEnd > $iFinalizeStart Then
 	$sFinalizeSource = StringMid($sUdfSource, $iFinalizeStart, $iFinalizeEnd - $iFinalizeStart)
 EndIf
+Local $bPortabilityAutoOpen = ($sFinalizeSource <> '' And _
+		StringInStr($sFinalizeSource, 'Local $sOpenReport = $TraceSummaryPath', 1) > 0 And _
+		StringInStr($sFinalizeSource, "StringLeft($TracePortabilityState, 9) = 'complete;'", 1) > 0 And _
+		StringInStr($sFinalizeSource, '$sOpenReport = $TracePortabilityReportPath', 1) > 0 And _
+		StringInStr($sFinalizeSource, 'ShellExecute($sOpenReport)', 1) > 0)
+_T48WriteResult($sLog, 'Completed portability analysis opens its report with Trace Summary fallback', $bPortabilityAutoOpen)
+If Not $bPortabilityAutoOpen Then $bAllPass = False
+
 Local $iStopInFinalize = StringInStr($sFinalizeSource, '_TraceStopProcMonCapture()', 1)
 Local $iDebugEndInFinalize = StringInStr($sFinalizeSource, "_DebugSessionEnd('trace-finalize')", 1)
 Local $bProcMonStopOrder = ($iStopInFinalize > 0 And $iDebugEndInFinalize > $iStopInFinalize And _
@@ -269,9 +277,9 @@ Func _T48WriteResult($sFile, $sName, $bPass)
 	Local $hFile = FileOpen($sFile, 1)
 	If $hFile = -1 Then Return
 	If $bPass Then
-		FileWriteLine($hFile, $sName & ': PASS')
+		FileWriteLine($hFile, $sName & '=PASS')
 	Else
-		FileWriteLine($hFile, $sName & ': FAIL')
+		FileWriteLine($hFile, $sName & '=FAIL')
 	EndIf
 	FileClose($hFile)
 EndFunc

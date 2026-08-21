@@ -636,8 +636,11 @@ Built-in Diagnostics Stage 4A:
   Test 46 proves that every source and sentinel remains unchanged, no target or
   run marker appears, the REG file remains byte-identical, and the disposable
   HKCU host value is not replaced by the portable value.
-- Invalid environment names, unknown/misspelled operation names, missing
-  delimiters, missing RunFile targets and missing REG files must be reported.
+- Windows-valid environment names containing parentheses or spaces must be
+  accepted. A blank name or a name containing the reserved equals separator
+  must state the exact reason it cannot be accepted. Unknown/misspelled
+  operation names, missing delimiters, missing RunFile targets and missing REG
+  files must still be reported.
 - Stage 4C completes Probe validation for StringReplace,
   StringRegExpReplace, WriteToFile, WriteToIni, WriteToPref and WriteToReg.
   Wildcard matches are listed, regular expressions are compiled against an
@@ -657,6 +660,14 @@ Built-in Diagnostics Stage 4A:
   are intentionally UTF-8 with BOM, so the first heading is searched as a
   contained literal instead of an exact whole line. All remaining report
   assertions retain their exact or beginning-of-line matching.
+- Stage 4D adds a regression requirement for the end of the Configuration
+  Probe report. The summary must repeat every ordered FAIL and WARN detail
+  from the report and must not repeat PASS or NOT USED details. The comparison
+  uses the existing invalid fixture and does not execute configured operations.
+- Stage 4E requires Configuration Probe reports to use the .log extension.
+  Existing Probe assertions accept the previous .txt extension only for the
+  pre-change failing baseline; the grouped result passes only when both valid
+  and invalid Probe reports use .log.
 
 Built-in Diagnostics Stage 5A:
 - Test 47 is one grouped permanent regression for optional ProcMonPath
@@ -688,7 +699,7 @@ Built-in Diagnostics Stage 5B:
 - Explicit Trace temporarily enables enhanced logging and waiting without
   changing the INI. It records the launcher PID, direct application PID, exit
   result and best-effort observed child-process details.
-- Application_Trace_Summary.txt separates X-Launcher-recorded file/directory,
+- Application_Trace_Summary.log separates X-Launcher-recorded file/directory,
   registry, process and error details; Root/outside-Root and residue headings;
   PASS/FAIL/WARN/SKIP/NOT USED totals; privacy guidance; limitations; and the
   complete ordered debug detail.
@@ -738,7 +749,7 @@ Built-in Diagnostics Stage 5B:
   space, final capture size, duration and complete/partial status. Normal
   launches and existing INIs remain unchanged.
 - Stage 8 adds Test 48B, one grouped permanent regression for the readable
-  Application_Portability_Report.txt parser and classifier. It uses controlled
+  Application_Portability_Report.log parser and classifier. It uses controlled
   synthetic Process Monitor XML and CSV rows and does not start Process Monitor.
 - Test 48B verifies automatic per-session same-column Category filtering for
   Write, Write Metadata and Process, Drop Filtered Events, /LoadConfig and
@@ -778,8 +789,10 @@ Built-in Diagnostics Stage 5B:
 - Stage 8E4 adds Test 48F for the combined FixAppData, FixLocalAppData,
   FixTemp and USERPROFILE configuration. The payload must receive the correct
   APPDATA, LOCALAPPDATA, TEMP and TMP paths; x-launcher.cfg must store the real
-  AppData leaf name without control characters and remain byte-identical over
-  two launches. Test 49 remains the final Full Test gate.
+  AppData leaf name without control characters; the normal .log must retain the
+  full portable APPDATA path rather than only its leaf name; and x-launcher.cfg
+  must remain byte-identical over two launches. Test 49 remains the final Full
+  Test gate.
 - A real Trace creates a temporary category-based ProcMon configuration, drops
   unrelated read/network/profiling activity during capture, stops and preserves
   the filtered Process Monitor capture, exports the PML to
@@ -795,8 +808,8 @@ Built-in Diagnostics Stage 5B:
   are evidence and guidance, not proof that an INI rule is semantically right.
 - File-system and Debug regression coverage verifies that ordinary and
   empty-only DirRemove calls treat an already-absent target as an idempotent
-  successful no-op, while existing removal and non-empty-data safety contracts
-  remain unchanged.
+  successful no-op. Ordinary removal of unprotected targets retains its
+  historical behaviour; protected-base cleanup modes are covered by Test 54.
 - The focused RUN_STAGE8A_PORTABILITY_REPORT_TEST.bat performs a native smoke
   with disposable file and HKCU registry targets below the kit's test folders
   and HKCU\Software\XLauncher_Test. It removes the disposable registry keys.
@@ -1009,8 +1022,33 @@ Lower-priority cleanup and compatibility resolution:
   persistent-directory checks for symbolic links. On a machine without Developer Mode or an
   elevated launcher, Windows error 1314 is accepted as an explicit privilege
   limitation rather than being mistaken for a functional success.
-- Together with the expanded Test 24 splash checks, the suite now contains 66
+- Together with the expanded Test 24 splash checks, the suite now contains 67
   permanent regression tests.
+- Test 46 now also verifies the original DirRemove contract: no flag means
+  recursive removal of populated directories, |e means empty-directory-only
+  cleanup, and |o is rejected with guidance that explains both valid forms.
+- Test 46 classifies already-absent DirRemove targets as NOT USED rather than
+  FAIL in Functions, FirstRunOperations and RunAfter. The complete Probe report
+  retains the information while the FAIL/WARN attention summary omits it.
+  Missing copy and move sources remain failures.
+- Test 54 verifies protected Lib cleanup in both Configuration Probe and normal
+  runtime operation. DirRemove=$Lib$ remains blocked, DirRemove=$Lib$|e removes
+  only empty descendants while preserving Lib, a trailing separator removes
+  contents while preserving Lib, and the combined trailing-separator |e form
+  preserves non-empty content. Bin, Root, launcher and system paths remain
+  protected from direct or contents-only recursive deletion.
+- Test 46 now verifies that Configuration Probe accepts PROGRAMFILES(x86) and
+  a custom name containing a space. Environment-name validation follows the
+  Windows rule instead of a programming-language identifier rule: parentheses,
+  spaces, leading digits and custom names are valid; the equals sign is the
+  reserved separator. Probe does not guess whether an application reads a
+  valid custom name. Test 48F also proves that PROGRAMFILES(x86) is assigned by
+  normal X-Launcher execution, reaches the payload and is recorded by Debug.
+- The v2.0.0.338 test-harness correction updates the permanent Test 49 and
+  focused Stage 6M searches to the new environment result descriptions. The
+  built-in Full Test already passed with zero failures; only the external
+  sentence-matching count was stale. No launcher source or rebuild is required
+  before rerunning Test_Suite\RUN_TEST.bat.
 
 Issue 21 v2 baseline correction:
 - The FirstRun=true/false checks no longer require one exact literal INI line.

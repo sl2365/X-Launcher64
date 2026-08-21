@@ -90,9 +90,9 @@ Func _T47WriteResult($sFile, $sName, $bPass)
 	Local $hFile = FileOpen($sFile, 1)
 	If $hFile = -1 Then Return
 	If $bPass Then
-		FileWriteLine($hFile, $sName & ': PASS')
+		FileWriteLine($hFile, $sName & '=PASS')
 	Else
-		FileWriteLine($hFile, $sName & ': FAIL')
+		FileWriteLine($hFile, $sName & '=FAIL')
 	EndIf
 	FileClose($hFile)
 EndFunc

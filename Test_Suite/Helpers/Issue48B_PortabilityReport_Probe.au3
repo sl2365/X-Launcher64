@@ -23,7 +23,7 @@ Local $sCSV = $sWork & '\Application_Trace.csv'
 Local $sXML = $sWork & '\Application_Trace.xml'
 Local $sConvertedCSV = $sWork & '\Application_Trace_Converted.csv'
 Local $sPMC = $sWork & '\Application_Trace_Filter.pmc'
-Local $sReport = $sWork & '\Application_Portability_Report.txt'
+Local $sReport = $sWork & '\Application_Portability_Report.log'
 Local $sLog = $sWork & '\Helper.log'
 Local $sManagedFile = $sExternal & '\Managed, Settings.ini'
 Local $sUnmanagedFile = $sExternal & '\Unmanaged.txt'
@@ -216,13 +216,13 @@ _T48BResult($sLog, 'Direct REG parser extracts the portable top-level registry r
 _T48BResult($sLog, 'Readable portability report is created from exported Process Monitor CSV', _
 		$bBuilt And $iBuildError = 0 And FileExists($sReport), $bAllPass)
 _T48BResult($sLog, 'Repeated low-level file events collapse into unique target counts', _
-		StringInStr($sText, 'UNMANAGED application write targets: 2', 1) > 0 And _
-		StringInStr($sText, 'MANAGED application write targets: 2', 1) > 0 And _
-		StringInStr($sText, 'CONTAINED application write targets: 2', 1) > 0 And _
-		StringInStr($sText, 'X-LAUNCHER action targets: 1', 1) > 0, $bAllPass)
+		StringInStr($sText, 'UNMANAGED application write targets=2', 1) > 0 And _
+		StringInStr($sText, 'MANAGED application write targets=2', 1) > 0 And _
+		StringInStr($sText, 'CONTAINED application write targets=2', 1) > 0 And _
+		StringInStr($sText, 'X-LAUNCHER action targets=1', 1) > 0, $bAllPass)
 _T48BResult($sLog, 'Application child PID activity is attributed and unrelated PID activity is excluded', _
 		StringInStr($sText, 'Child.exe', 1) > 0 And _
-		StringInStr($sText, 'Command line: Child.exe', 1) > 0 And _
+		StringInStr($sText, 'Command line= Child.exe', 1) > 0 And _
 		StringInStr($sText, $sChildFile, 1) > 0 And _
 		StringInStr($sText, $sIgnoredFile, 1) = 0, $bAllPass)
 _T48BResult($sLog, 'Current INI file and registry rules classify external targets as managed', _
@@ -233,12 +233,22 @@ _T48BResult($sLog, 'Unmanaged file and registry writes remain visible for user r
 		StringInStr($sText, $sUnmanagedFile, 1) > 0 And _
 		StringInStr($sText, 'HKCU\Software\XLauncherStage8\Unmanaged\Setting', 1) > 0 And _
 		StringInStr($sText, 'add an appropriate INI rule', 1) > 0, $bAllPass)
+_T48BResult($sLog, 'Portability report uses equals separators for readable key-value fields', _
+		StringInStr($sText, 'Actor= APPLICATION', 1) > 0 And _
+		StringInStr($sText, 'PID= 1001', 1) > 0 And _
+		StringInStr($sText, 'Parent PID= 1000', 1) > 0 And _
+		StringInStr($sText, 'Process= Child.exe', 1) > 0 And _
+		StringInStr($sText, 'Command line= Child.exe', 1) > 0 And _
+		StringInStr($sText, 'Path= ' & $sChildFile, 1) > 0 And _
+		StringInStr($sText, 'INI coverage= Inside the configured Root', 1) > 0 And _
+		StringInStr($sText, 'Actor: ', 1) = 0 And _
+		StringInStr($sText, 'Command line: ', 1) = 0, $bAllPass)
 _T48BResult($sLog, 'Relevant failures state limitations residue and privacy are explicit', _
-		StringInStr($sText, 'Relevant failed operations: 1', 1) > 0 And _
+		StringInStr($sText, 'Relevant failed operations=1', 1) > 0 And _
 		StringInStr($sText, 'ACCESS DENIED', 1) > 0 And _
 		StringInStr($sText, 'PRESENT AFTER EXIT', 1) > 0 And _
 		StringInStr($sText, 'LIMITATIONS', 1) > 0 And _
-		StringInStr($sText, 'Privacy:', 1) > 0, $bAllPass)
+		StringInStr($sText, 'Privacy=', 1) > 0, $bAllPass)
 
 If $bAllPass Then Exit 0
 Exit 1
@@ -257,9 +267,9 @@ Func _T48BResult($sFile, $sName, $bPass, ByRef $bAllPass)
 	Local $hFile = FileOpen($sFile, 1)
 	If $hFile <> -1 Then
 		If $bPass Then
-			FileWriteLine($hFile, $sName & ': PASS')
+			FileWriteLine($hFile, $sName & '=PASS')
 		Else
-			FileWriteLine($hFile, $sName & ': FAIL')
+			FileWriteLine($hFile, $sName & '=FAIL')
 		EndIf
 		FileClose($hFile)
 	EndIf
