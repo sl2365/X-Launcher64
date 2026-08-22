@@ -72,7 +72,7 @@ Important:
 ISN Studio and the SciTE/AutoIt editor are not required to build X-Launcher64 v2.
 
 - Double-click `BUILD.bat` for AU3Check and compilation only. The compiled launcher remains as `X-Launcher_x64.exe` in the project root.
-- Double-click `BUILD_TEST.bat` for AU3Check, compilation, and all 66 permanent regression tests. This build moves the compiled launcher to `Test_Suite\X-Launcher_x64.exe` and writes `Test_Suite\Results.log`.
+- Double-click `BUILD_TEST.bat` for AU3Check, compilation, and all 67 permanent regression tests. This build moves the compiled launcher to `Test_Suite\X-Launcher_x64.exe` and writes `Test_Suite\Results.log`.
 - Double-click `Test_Suite\RUN_TEST.bat` to rerun the permanent suite against the test launcher already present.
 
 ---
@@ -320,7 +320,6 @@ Debug=true additionally produces detailed .dbg and .log files during normal laun
 
 | Component | Intended user | Purpose |
 |---|---|---|
-| Test_Suite | Developer/maintainer | Proves the audit repairs haven’t broken anything. Its 56 tests validate X-Launcher code. |
+| Test_Suite | Developer/maintainer | Proves the audit repairs haven’t broken anything. Its 67 tests validate X-Launcher code. |
 | Debug_Feature_Test_Kit | Developer/maintainer | Proves the newly built diagnostic features themselves work correctly. It is not for testing normal applications. |
 | Built-in TestRun modes | Ordinary X-Launcher user | Tests X-Launcher itself or a user’s real application INI. |
-

@@ -1,4 +1,4 @@
-X-Launcher64 v2.0.0.330 - Changes since v1.5.7.20
+X-Launcher64 v2.0.0.346 - Changes since v1.5.7.20
 =================================================
 
 - Updated X-Launcher to a modern native 64-bit build for Windows 8 and later.
@@ -32,3 +32,6 @@ X-Launcher64 v2.0.0.330 - Changes since v1.5.7.20
   key= value formatting for clearer syntax highlighting and scanning.
 - Changed Debug=true .dbg line prefixes from `timestamp : message` to
   `timestamp = message` for consistent key-value syntax highlighting.
+- Refined visible portability-report keys to Application Root PID, Launcher Root PID,
+  ParentPID, CommandLine and INIcoverage while retaining Process Monitor's original
+  internal `Parent PID` and `Command line` detail-field names for compatibility.

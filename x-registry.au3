@@ -10,11 +10,12 @@
 ;
 ; ------------------------------------------------------------------------------
 ;
-; AutoIt Version:	3.2.12.1
+; AutoIt Version:	3.3.18.0
 ; Language:			English
 ; Description:		Functions used in X-Launcher
 ; Author:			winPenPack Developer Team
 ; Contributors:		winPenPack Team and winPenPack community
+; v2.x.x Update:	sl23 https://github.com/sl2365/X-Launcher64
 ;
 ; ------------------------------------------------------------------------------
 ;

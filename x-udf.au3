@@ -12,11 +12,12 @@ Global $bJGCancel = False
 ;
 ; ------------------------------------------------------------------------------
 ;
-; AutoIt Version:	3.2.12.1
+; AutoIt Version:	3.3.18.0
 ; Language:			English
 ; Description:		Functions used in X-Launcher
 ; Author:			Gabriele Tittonel <tittoproject@gmail.com>
 ; Contributors:		winPenPack Team and winPenPack community
+; v2.x.x Update:	sl23 https://github.com/sl2365/X-Launcher64
 ;
 ; ------------------------------------------------------------------------------
 ;
@@ -4067,8 +4068,8 @@ Func _TraceConvertProcMonXMLToCSV($sXMLPath, $sCSVPath)
 			If Not $bProcessRowsWritten Then
 				For $i = 0 To $iMaximumProcessIndex
 					If $aProcesses[$i][0] = '' Then ContinueLoop
-					$sDetail = 'ParentPID: ' & $aProcesses[$i][1] & _
-							', CommandLine: ' & $aProcesses[$i][3]
+					$sDetail = 'Parent PID: ' & $aProcesses[$i][1] & _
+							', Command line: ' & $aProcesses[$i][3]
 					FileWriteLine($hCSV, _TraceCSVQuote($aProcesses[$i][2]) & ',' & _
 							_TraceCSVQuote($aProcesses[$i][0]) & ',' & _
 							_TraceCSVQuote('Process Start') & ',' & _TraceCSVQuote('') & ',' & _
@@ -4467,7 +4468,7 @@ Func _TraceCSVCollectProcessRelations($sCSVPath, $iProcess, $iPID, $iOperation, 
 		If $iDetail >= 0 And UBound($aFields) > $iDetail Then $sDetail = $aFields[$iDetail]
 		If $sOperation = 'process start' Then
 			$iChild = Number($aFields[$iPID])
-			$iParent = _TraceDetailNumber($sDetail, 'ParentPID')
+			$iParent = _TraceDetailNumber($sDetail, 'Parent PID')
 		Else
 			$iParent = Number($aFields[$iPID])
 			$iChild = _TraceDetailNumber($sDetail, 'PID')
@@ -4479,7 +4480,7 @@ Func _TraceCSVCollectProcessRelations($sCSVPath, $iProcess, $iPID, $iOperation, 
 		ElseIf UBound($aFields) > $iProcess Then
 			$sName = $aFields[$iProcess]
 		EndIf
-		$sCommandLine = _TraceDetailValue($sDetail, 'CommandLine')
+		$sCommandLine = _TraceDetailValue($sDetail, 'Command line')
 		_TraceRelationAdd($aRelations, $iRelationCount, $iChild, $iParent, _
 				$sName, $sCommandLine)
 	WEnd

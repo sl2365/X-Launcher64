@@ -6,13 +6,15 @@
 ;
 ; ------------------------------------------------------------------------------
 ;
-; AutoIt Version:			3.2.12.1
+; AutoIt Version:			3.3.18.0
 ; Platform:					Windows
 ; Script Name:				X-Launcher
 ; Script Function:			Runs every application from a removable drive
-; Script Version:			1.5.4.0
-; Author:					Gabriele Tittonel <tittoproject@gmail.com>
-; Home Page:				http://x-launcher.sourceforge.net/
+; Script Version:			2.0.0.346
+; Author:					sl23
+; Homepage:					https://github.com/sl2365/X-Launcher64
+; Original Author:			Gabriele Tittonel <tittoproject@gmail.com>
+; Original Home Page:		http://x-launcher.sourceforge.net/
 ; License:					GNU General Public License
 ; Contributors:				winPenPack Team and winPenPack community
 ;							(http://www.winpenpack.com)
