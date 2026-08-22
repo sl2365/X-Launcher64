@@ -30,10 +30,28 @@ X-Launcher v2.x.x only supports Windows 8 and later.
 # Manual translation
 
 The Manual is written in english, you can easily translate the pdf to another language using the free online service: [Online Doc Translator](http://www.onlinedoctranslator.com/)
-1. Select the pdf that to translate: load from local
-2. Select language of original pdf (automatically recognised)
-3. Select the destination language (automatically proposed: confirm)
-4. Download the pdf translated.
+
+	- Select the pdf that to translate: load from local
+	- Select language of original pdf (automatically recognised)
+	- Select the destination language (automatically proposed: confirm)
+	- Download the pdf translated.
+
+---
+
+# Changing X-Launcher's icon
+
+The X-Launcher icon is generic, but can be replaced using resource hacker. Instructions on how to replace the X-Launcher icon to use the same one as your app that is being launched.
+
+	- Download [Resource Hacker](https://www.portablefreeware.com/index.php?id=289)
+	- Open Resource Hacker.
+	- Drag your the X-Launcher64.exe onto the window.
+	- Open the item on the left called `Icon Group`.
+	- Select the sub-item called `99:2057`.
+	- Right click it and select `Replace icon`.
+	- Click `Open file with new icon`.
+	- Choose an EXE file containing the icon or an icon file.
+	- Then select an icon from the list and click `Replace`.
+	- Save and your done!
 
 ---
 
