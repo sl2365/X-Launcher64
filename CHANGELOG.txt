@@ -35,3 +35,4 @@ X-Launcher64 v2.0.0.346 - Changes since v1.5.7.20
 - Refined visible portability-report keys to Application Root PID, Launcher Root PID,
   ParentPID, CommandLine and INIcoverage while retaining Process Monitor's original
   internal `Parent PID` and `Command line` detail-field names for compatibility.
+- Manual completely reworked.
