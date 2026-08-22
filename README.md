@@ -29,10 +29,10 @@ X-Launcher v2.x.x only supports Windows 8 and later.
 
 # Manual translation
 
-The Manual is written in english, you can easily translate the pdf to another language, simply go to: [Online Doc Translator](http://www.onlinedoctranslator.com/)
+The Manual is written in english, you can easily translate the pdf to another language using the free online service: [Online Doc Translator](http://www.onlinedoctranslator.com/)
 1. Select the pdf that to translate: load from local
-2. Select language of original pdf (it will be automatically recognized)
-3. Select the destination language (it will automatically proposed: confirm)
+2. Select language of original pdf (automatically recognised)
+3. Select the destination language (automatically proposed: confirm)
 4. Download the pdf translated.
 
 ---
