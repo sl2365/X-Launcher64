@@ -18,11 +18,22 @@ Compiled with [AutoIT v3.3.18.0](https://www.autoitscript.com/autoit3/files/arch
 ![jpg X-Splash](graphics/x-splash.jpg)
 
 ### NOTE:
+
 AutoIT v3.3.18.0 has discontinued support for older Windows versions: XP and Vista, only supports Windows 7 and later.
 See the [AutoIT changelog](https://www.autoitscript.com/autoit3/docs/history.htm) for more info. 
 
 X-Launcher v1.5.7.20 still supports those versions.
 X-Launcher v2.x.x only supports Windows 8 and later.
+
+---
+
+# Manual translation
+
+The Manual is written in english, you can easily translate the pdf to another language, simply go to: [Online Doc Translator](http://www.onlinedoctranslator.com/)
+1. Select the pdf that to translate: load from local
+2. Select language of original pdf (it will be automatically recognized)
+3. Select the destination language (it will automatically proposed: confirm)
+4. Download the pdf translated.
 
 ---
 
