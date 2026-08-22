@@ -13,7 +13,7 @@ Updated version of the portable launcher. Want to make your apps portable? Use X
 
 For a quicker response to issues, please post bug reports and FR's on the [PortableFreeware](https://www.portablefreeware.com/forums/viewtopic.php?t=26375) forum.
 
-Compiled with AutoIT v3.3.18.0
+Compiled with [AutoIT v3.3.18.0](https://www.autoitscript.com/autoit3/files/archive/autoit/)
 
 ![jpg X-Splash](graphics/x-splash.jpg)
 
