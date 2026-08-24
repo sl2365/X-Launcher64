@@ -115,8 +115,8 @@ Here is a complete simple guide to build from scratch:
 `_Projects\X-Launcher_x64\BUILD.bat`
 4. Run `BUILD.bat` once you're ready to compile.
 5. The new launcher appears in the same folder as `BUILD.bat`.
-It's really that simple!
 
+It's really that simple!
 
 ---
 
