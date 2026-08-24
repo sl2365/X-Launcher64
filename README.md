@@ -107,6 +107,7 @@ The SciTE/AutoIt editor are not required to build X-Launcher64 v2.
 Here is a complete simple guide to build from scratch:
 
 ### Installation of source and compiler:
+
 1. Pick a suitable location to install both source and AutoIT. Lets say you choose this location:
 `X:\_Projects`
 2.Next, download the AutoIT portable package and unpack it so it resides here:
@@ -174,44 +175,6 @@ Junctions=C:\ExistingData|C:\ProgramData\ExampleData|*
 ```
 
 Do not add a trailing pipe when `*` is not used. Existing normal files and directories are never overwritten. An existing link is accepted only when it resolves to the requested source; because X-Launcher did not create that link, it will not remove it. Directory junction targets must be local paths. Symbolic links may require Windows Developer Mode or starting X-Launcher with **Run as administrator**. The launcher itself does not request elevation automatically.
-
-## Registry view
-
-Existing configurations continue using the launcher's native registry view unless `RegView` is specified. New configurations use `RegView=Auto`, which selects the registry view from the launched application's architecture. Existing portable applications that use registry redirection and were previously run with a 32-bit X-Launcher may need `RegView=32` added once.
-
-| Setting | Result |
-|---|---|
-| Key absent | Launcher-native view |
-| `RegView=32` | Force 32-bit view |
-| `RegView=64` | Force 64-bit view |
-| `RegView=Native` | Force launcher-native view |
-| `RegView=Auto` | Use the target EXE's 32-bit or 64-bit view; fall back to Native when it cannot be detected |
-
-## Java
-
-`Java` controls whether the application requires Java:
-
-| Setting | Result |
-|---|---|
-| `Java=false` | Do not use Java. A saved `JavaPath` is retained but ignored. |
-| `Java=true` | Require a usable Java runtime; stop with an error if none can be resolved. |
-| `Java=optional` | Use Java when available, but allow the application to continue without it. |
-
-`JavaPath` is the highest-priority, read-only runtime source. It accepts an absolute path or a path relative to `Root`, including a Java runtime root, its `bin` folder, `java.exe`, or `javaw.exe`. Quotes are accepted. A valid runtime must contain both `java.exe` and `javaw.exe`. Point this setting at a full jPortable/PortableApps Java or Java64 runtime, not at `JavaPortableLauncher.exe`.
-
-Examples:
-
-```ini
-Java=true
-JavaPath=D:\PortableApps\CommonFiles\Java64
-```
-
-```ini
-Java=optional
-JavaPath=.\CommonFiles\Java\bin\javaw.exe
-```
-
-`JavaURL` remains an optional direct HTTP or HTTPS Java package URL. It is a download/setup fallback used only when Java is enabled and no usable configured, bundled, or system runtime was found. Local paths belong in `JavaPath`, not `JavaURL`.
 
 ---
 
