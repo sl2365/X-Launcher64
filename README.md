@@ -98,11 +98,25 @@ Important:
 - Aut2Exe performs compilation.
 - AutoIt3Wrapper is retained only as a command-line build utility because the current x-compiler.au3 uses AutoIt3Wrapper directives for resource metadata, automatic FileVersion incrementing, DPI/manifest settings, etc.
 
-ISN Studio and the SciTE/AutoIt editor are not required to build X-Launcher64 v2.
+The SciTE/AutoIt editor are not required to build X-Launcher64 v2.
 
 - Double-click `BUILD.bat` for AU3Check and compilation only. The compiled launcher remains as `X-Launcher_x64.exe` in the project root.
 - Double-click `BUILD_TEST.bat` for AU3Check, compilation, and all 67 permanent regression tests. This build moves the compiled launcher to `Test_Suite\X-Launcher_x64.exe` and writes `Test_Suite\Results.log`.
 - Double-click `Test_Suite\RUN_TEST.bat` to rerun the permanent suite against the test launcher already present.
+
+Here is a complete simple guide to build from scratch:
+
+### Installation of source and compiler:
+- 1. Pick a suitable location to install both source and AutoIT. Lets say you choose this location:
+`X:\_Projects`
+- 2.Next, download the AutoIT portable package and unpack it so it resides here:
+`_Projects\_Tools\AutoIT\- 3.3.18.0\AutoIt3_x64.exe`
+- 3. Now download the source and unpack that so it resides here:
+`_Projects\X-Launcher_x64\BUILD.bat`
+- 4. Run `BUILD.bat` once you're ready to compile.
+- The new launcher appears in the same folder as `BUILD.bat`.
+It's really that simple!
+
 
 ---
 
