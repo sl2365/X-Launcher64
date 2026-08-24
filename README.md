@@ -107,14 +107,14 @@ The SciTE/AutoIt editor are not required to build X-Launcher64 v2.
 Here is a complete simple guide to build from scratch:
 
 ### Installation of source and compiler:
-- 1. Pick a suitable location to install both source and AutoIT. Lets say you choose this location:
+1. Pick a suitable location to install both source and AutoIT. Lets say you choose this location:
 `X:\_Projects`
-- 2.Next, download the AutoIT portable package and unpack it so it resides here:
+2.Next, download the AutoIT portable package and unpack it so it resides here:
 `_Projects\_Tools\AutoIT\- 3.3.18.0\AutoIt3_x64.exe`
-- 3. Now download the source and unpack that so it resides here:
+3. Now download the source and unpack that so it resides here:
 `_Projects\X-Launcher_x64\BUILD.bat`
-- 4. Run `BUILD.bat` once you're ready to compile.
-- The new launcher appears in the same folder as `BUILD.bat`.
+4. Run `BUILD.bat` once you're ready to compile.
+5. The new launcher appears in the same folder as `BUILD.bat`.
 It's really that simple!
 
 
