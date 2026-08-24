@@ -12,12 +12,11 @@ Global $bJGCancel = False
 ;
 ; ------------------------------------------------------------------------------
 ;
-; AutoIt Version:	3.3.18.0
+; AutoIt Version:	3.2.12.1
 ; Language:			English
 ; Description:		Functions used in X-Launcher
 ; Author:			Gabriele Tittonel <tittoproject@gmail.com>
 ; Contributors:		winPenPack Team and winPenPack community
-; v2.x.x Update:	sl23 https://github.com/sl2365/X-Launcher64
 ;
 ; ------------------------------------------------------------------------------
 ;
@@ -3442,6 +3441,7 @@ Func _TracePrepare($sTitle, $sLang)
 	$TraceProcMonCSVPath = $TraceSessionDir & '\Application_Trace.csv'
 	$TraceProcMonXMLPath = $TraceSessionDir & '\Application_Trace.xml'
 	$TraceProcMonConfigPath = $TraceSessionDir & '\Application_Trace_Filter.pmc'
+	$TraceResultsPath = $TraceSessionDir & '\Application_Trace_Results.log'
 	$TracePortabilityReportPath = $TraceSessionDir & '\Application_Portability_Report.log'
 	$TracePortabilityState = 'not attempted'
 	$TraceProcMonPID = 0
@@ -3506,6 +3506,7 @@ Func _TracePrepare($sTitle, $sLang)
 	IniWrite($TraceSettingsPath, 'Trace', 'ProcessMonitor', $TraceProcMonState)
 	IniWrite($TraceSettingsPath, 'Trace', 'ProcessMonitorCapture', $TraceProcMonCapturePath)
 	IniWrite($TraceSettingsPath, 'Trace', 'ProcessMonitorFilter', $TraceProcMonConfigPath)
+	IniWrite($TraceSettingsPath, 'Trace', 'TraceResults', $TraceResultsPath)
 	IniWrite($TraceSettingsPath, 'Trace', 'PortabilityReport', $TracePortabilityReportPath)
 	IniWrite($TraceSettingsPath, 'Trace', 'PortabilityAnalysis', $TracePortabilityState)
 	IniWrite($TraceSettingsPath, 'Trace', 'ProcMonMaxMB', $TraceProcMonMaxMB)
@@ -3938,9 +3939,12 @@ Func _TraceCreatePortabilityReport()
 
 	_TracePortabilityProgress('Classifying application writes and current INI coverage...')
 	Local $hAnalysisTimer = TimerInit()
+	Local $sSimpleDebugContent = ''
+	If FileExists($DebugFile) Then $sSimpleDebugContent = FileRead($DebugFile)
 	Local $bBuilt = _TraceBuildPortabilityReportFromCSV($TraceProcMonCSVPath, _
 			$TracePortabilityReportPath, $ScriptIni, $TraceApplicationPID, _
-			$TraceObservedPIDs, @AutoItPID, $Root, $TraceObservedProcesses)
+			$TraceObservedPIDs, @AutoItPID, $Root, $TraceObservedProcesses, _
+			$TraceResultsPath, $sSimpleDebugContent, $DebugFailCount)
 	Local $iBuildError = @error
 	Local $iUnmanagedTargets = @extended
 	If Not $bBuilt Then
@@ -3959,6 +3963,13 @@ Func _TraceCreatePortabilityReport()
 	Local $nTotalSeconds = Round(TimerDiff($hTotalTimer) / 1000, 2)
 	_DebugWrite('[PASS] [Portability] Target classification completed (seconds=' & _
 			$nAnalysisSeconds & '; total-seconds=' & $nTotalSeconds & ')')
+	If FileExists($TraceResultsPath) Then
+		_DebugWrite('[PASS] [Portability] Plain-language Trace results created=' & _
+				$TraceResultsPath)
+	Else
+		_DebugWrite('[WARN] [Portability] Plain-language Trace results could not be created=' & _
+				$TraceResultsPath)
+	EndIf
 
 	$TracePortabilityState = 'complete; readable application-write report created; ' & _
 			'unmanaged targets=' & $iUnmanagedTargets
@@ -3972,6 +3983,7 @@ Func _TraceCreatePortabilityReport()
 	EndIf
 	If FileExists($TraceSettingsPath) Then
 		IniWrite($TraceSettingsPath, 'Trace', 'PortabilityAnalysis', $TracePortabilityState)
+		IniWrite($TraceSettingsPath, 'Trace', 'TraceResults', $TraceResultsPath)
 		IniWrite($TraceSettingsPath, 'Trace', 'PortabilityReport', $TracePortabilityReportPath)
 		IniWrite($TraceSettingsPath, 'Trace', 'PortabilityAnalysisSeconds', $nAnalysisSeconds)
 		IniWrite($TraceSettingsPath, 'Trace', 'PortabilityTotalSeconds', $nTotalSeconds)
@@ -3982,7 +3994,7 @@ Func _TraceCreatePortabilityReport()
 	; The per-session ProcMon filter contains the portable Root path. It is no
 	; longer needed after successful export and analysis.
 	FileDelete($TraceProcMonConfigPath)
-	_TracePortabilityProgress('Application portability report completed.', True)
+	_TracePortabilityProgress('Application Trace reports completed.', True)
 	Return SetError(0, 0, True)
 EndFunc   ;==>_TraceCreatePortabilityReport
 
@@ -4009,7 +4021,13 @@ Func _TraceWritePortabilityUnavailableReport($sReason)
 			@CRLF & @CRLF & _
 			'Privacy=Diagnostic files can contain usernames, paths, command lines, ' & _
 			'document names and registry data. Review them before sharing.' & @CRLF
-	Return _TraceWriteUTF8File($TracePortabilityReportPath, $sReport)
+	Local $bAdvancedWritten = _TraceWriteUTF8File($TracePortabilityReportPath, $sReport)
+	Local $sSimpleDebugContent = ''
+	If FileExists($DebugFile) Then $sSimpleDebugContent = FileRead($DebugFile)
+	_TraceWriteSimplePortabilityUnavailableReport($TraceResultsPath, $sReason, _
+			$TracePortabilityReportPath, $TraceSummaryPath, $sSimpleDebugContent, _
+			$DebugFailCount)
+	Return $bAdvancedWritten
 EndFunc   ;==>_TraceWritePortabilityUnavailableReport
 
 Func _TraceConvertProcMonXMLToCSV($sXMLPath, $sCSVPath)
@@ -4154,7 +4172,8 @@ EndFunc   ;==>_TraceCSVQuote
 
 Func _TraceBuildPortabilityReportFromCSV($sCSVPath, $sReportPath, $sIni, _
 		$iApplicationPID, $sObservedPIDs, $iLauncherPID, $sRootPath, _
-		$sObservedProcesses = '')
+		$sObservedProcesses = '', $sSimpleReportPath = '', _
+		$sSimpleDebugContent = '', $iSimpleFailureCount = 0)
 	Local $iProcess = -1, $iPID = -1, $iOperation = -1, $iPath = -1
 	Local $iResult = -1, $iDetail = -1
 	If Not _TraceCSVReadHeader($sCSVPath, $iProcess, $iPID, $iOperation, _
@@ -4231,6 +4250,9 @@ Func _TraceBuildPortabilityReportFromCSV($sCSVPath, $sReportPath, $sIni, _
 		If $sActor = 'X-LAUNCHER' Then
 			$sClass = 'X-LAUNCHER ACTION'
 			$sCoverage = 'Performed by the launcher or its helper process'
+		ElseIf $sEventType <> 'REGISTRY' And _TraceIsNTFSVolumeMetadataPath($sPath) Then
+			$sClass = 'SYSTEM METADATA'
+			$sCoverage = 'Windows-managed NTFS volume metadata; not an application portability target'
 		ElseIf $sEventType = 'REGISTRY' Then
 			If _TraceRegistryCoverageMatch($sPath, $aRegCoverage, _
 					$iRegCoverageCount, $sCoverage) Then
@@ -4241,10 +4263,15 @@ Func _TraceBuildPortabilityReportFromCSV($sCSVPath, $sReportPath, $sIni, _
 			EndIf
 		ElseIf _TracePathWithin($sPath, $sRootPath) Then
 			$sClass = 'CONTAINED'
-			$sCoverage = 'Inside the configured Root'
+			If Not _TraceFileCoverageMatch($sPath, $aFileCoverage, _
+					$iFileCoverageCount, $sCoverage) Then _
+					$sCoverage = '[FileSystem] Root (' & _TraceCanonicalPath($sRootPath) & ')'
 		ElseIf _TraceFileCoverageMatch($sPath, $aFileCoverage, _
 				$iFileCoverageCount, $sCoverage) Then
 			$sClass = 'MANAGED'
+		ElseIf _TraceIsWindowsSystemFilePath($sPath) Then
+			$sClass = 'SYSTEM CHANGE'
+			$sCoverage = 'Windows-owned file or folder; normally not portable application data'
 		Else
 			$sClass = 'UNMANAGED'
 			$sCoverage = 'Outside Root with no matching current INI path handling'
@@ -4262,12 +4289,20 @@ Func _TraceBuildPortabilityReportFromCSV($sCSVPath, $sReportPath, $sIni, _
 				If $sActor = 'X-LAUNCHER' Then
 					$sRenameClass = 'X-LAUNCHER ACTION'
 					$sRenameCoverage = 'Performed by the launcher or its helper process'
+				ElseIf _TraceIsNTFSVolumeMetadataPath($sRenameTarget) Then
+					$sRenameClass = 'SYSTEM METADATA'
+					$sRenameCoverage = 'Windows-managed NTFS volume metadata; not an application portability target'
 				ElseIf _TracePathWithin($sRenameTarget, $sRootPath) Then
 					$sRenameClass = 'CONTAINED'
-					$sRenameCoverage = 'Inside the configured Root'
+					If Not _TraceFileCoverageMatch($sRenameTarget, $aFileCoverage, _
+							$iFileCoverageCount, $sRenameCoverage) Then _
+							$sRenameCoverage = '[FileSystem] Root (' & _TraceCanonicalPath($sRootPath) & ')'
 				ElseIf _TraceFileCoverageMatch($sRenameTarget, $aFileCoverage, _
 						$iFileCoverageCount, $sRenameCoverage) Then
 					$sRenameClass = 'MANAGED'
+				ElseIf _TraceIsWindowsSystemFilePath($sRenameTarget) Then
+					$sRenameClass = 'SYSTEM CHANGE'
+					$sRenameCoverage = 'Windows-owned file or folder; normally not portable application data'
 				Else
 					$sRenameClass = 'UNMANAGED'
 					$sRenameCoverage = 'Outside Root with no matching current INI path handling'
@@ -4280,10 +4315,14 @@ Func _TraceBuildPortabilityReportFromCSV($sCSVPath, $sReportPath, $sIni, _
 		EndIf
 	WEnd
 	FileClose($hCSV)
+	_TraceClassifyInstallationClusters($aRecords, $iRecordCount)
 
 	Local $iContained = _TraceRecordClassCount($aRecords, $iRecordCount, 'CONTAINED')
 	Local $iManaged = _TraceRecordClassCount($aRecords, $iRecordCount, 'MANAGED')
 	Local $iUnmanaged = _TraceRecordClassCount($aRecords, $iRecordCount, 'UNMANAGED')
+	Local $iSystemMetadata = _TraceRecordClassCount($aRecords, $iRecordCount, 'SYSTEM METADATA')
+	Local $iSystemChange = _TraceRecordClassCount($aRecords, $iRecordCount, 'SYSTEM CHANGE')
+	Local $iInstallation = _TraceRecordClassCount($aRecords, $iRecordCount, 'INSTALLATION ACTIVITY')
 	Local $iLauncher = _TraceRecordClassCount($aRecords, $iRecordCount, 'X-LAUNCHER ACTION')
 	Local $sCaptureStatus = 'complete native capture'
 	If $TraceProcMonCapturePartial Then $sCaptureStatus = 'partial native capture; results may be incomplete'
@@ -4314,6 +4353,9 @@ Func _TraceBuildPortabilityReportFromCSV($sCSVPath, $sReportPath, $sIni, _
 			'UNMANAGED application write targets=' & $iUnmanaged & @CRLF & _
 			'MANAGED application write targets=' & $iManaged & @CRLF & _
 			'CONTAINED application write targets=' & $iContained & @CRLF & _
+			'SYSTEM METADATA write targets=' & $iSystemMetadata & @CRLF & _
+			'SYSTEM CHANGE targets=' & $iSystemChange & @CRLF & _
+			'INSTALLATION ACTIVITY targets=' & $iInstallation & @CRLF & _
 			'X-LAUNCHER action targets=' & $iLauncher & @CRLF & _
 			'Relevant failed operations=' & $iErrorCount & @CRLF & @CRLF & _
 			'UNMANAGED means review is recommended; it is not automatic proof of a ' & _
@@ -4321,6 +4363,15 @@ Func _TraceBuildPortabilityReportFromCSV($sCSVPath, $sReportPath, $sIni, _
 
 	$sReport &= _TraceRenderRecordSection('UNMANAGED APPLICATION WRITES - REVIEW', _
 			'UNMANAGED', $aRecords, $iRecordCount)
+	$sReport &= _TraceRenderRecordSection( _
+			'WINDOWS NTFS METADATA - NOT A PORTABILITY TARGET', _
+			'SYSTEM METADATA', $aRecords, $iRecordCount)
+	$sReport &= _TraceRenderRecordSection( _
+			'WINDOWS SYSTEM CHANGES - REVIEW IF UNEXPECTED', _
+			'SYSTEM CHANGE', $aRecords, $iRecordCount)
+	$sReport &= _TraceRenderRecordSection( _
+			'INSTALLATION ACTIVITY - REVIEW IF UNEXPECTED OR LEFT BEHIND', _
+			'INSTALLATION ACTIVITY', $aRecords, $iRecordCount)
 	$sReport &= _TraceRenderRecordSection('MANAGED BY CURRENT INI', 'MANAGED', _
 			$aRecords, $iRecordCount)
 	$sReport &= _TraceRenderRecordSection('CONTAINED INSIDE ROOT', 'CONTAINED', _
@@ -4336,6 +4387,10 @@ Func _TraceBuildPortabilityReportFromCSV($sCSVPath, $sReportPath, $sIni, _
 			'process trees and compares their targets with Root and the current INI.' & @CRLF & _
 			'- Duplicate timestamp, allocation, flush, security metadata and Windows BAM ' & _
 			'bookkeeping events are omitted to keep capture and report processing bounded.' & @CRLF & _
+			'- NTFS volume metadata such as C:\$LogFile is retained only in the dedicated ' & _
+			'advanced section and is not treated as an application portability warning.' & @CRLF & _
+			'- Generic installer staging detection requires an unmanaged directory with at ' & _
+			'least two INF, CAT, SYS, CAB, MSI or MSP package files beneath it.' & @CRLF & _
 			'- Only successful write-like file and registry operations from attributed ' & _
 			'application or launcher process trees are classified.' & @CRLF & _
 			'- Services, brokers, elevated helpers and very short-lived processes may not ' & _
@@ -4351,8 +4406,271 @@ Func _TraceBuildPortabilityReportFromCSV($sCSVPath, $sReportPath, $sIni, _
 			'data. Review it before sharing.' & @CRLF
 
 	If Not _TraceWriteUTF8File($sReportPath, $sReport) Then Return SetError(4, 0, False)
+	If $sSimpleReportPath <> '' Then
+		_TraceWriteSimplePortabilityReport($sSimpleReportPath, $sReportPath, _
+				$sCaptureStatus, $sIni, $sRootPath, $aRecords, $iRecordCount, _
+				$aErrors, $iErrorCount, $iContained, $iManaged, $iUnmanaged, _
+				$sSimpleDebugContent, $iSimpleFailureCount)
+	EndIf
 	Return SetError(0, $iUnmanaged, True)
 EndFunc   ;==>_TraceBuildPortabilityReportFromCSV
+
+Func _TraceWriteSimplePortabilityReport($sPath, $sAdvancedReportPath, _
+		$sCaptureStatus, $sIni, $sRootPath, ByRef $aRecords, $iRecordCount, _
+		ByRef $aErrors, $iErrorCount, $iContained, $iManaged, $iUnmanaged, _
+		$sDebugContent = '', $iFailureCount = 0)
+	; Blocked requests wrote no data and have their own section/count. Keep the
+	; warning total for successful unmanaged writes and incomplete capture only.
+	Local $iWarningCount = $iUnmanaged
+	If $TraceProcMonCapturePartial Then $iWarningCount += 1
+	Local $iPassCount = $iContained + $iManaged
+	Local $iSystemChangeCount = _TraceRecordClassCount($aRecords, $iRecordCount, 'SYSTEM CHANGE')
+	Local $iInstallationCount = _TraceRecordClassCount($aRecords, $iRecordCount, 'INSTALLATION ACTIVITY')
+	Local $iSystemInstallationCount = $iSystemChangeCount + $iInstallationCount
+	Local $sOverall = 'PASS'
+	If $iFailureCount > 0 Then
+		$sOverall = 'FAIL'
+	ElseIf $iWarningCount > 0 Then
+		$sOverall = 'REVIEW REQUIRED'
+	ElseIf $iSystemInstallationCount > 0 Then
+		$sOverall = 'SYSTEM CHANGES OBSERVED'
+	ElseIf $iErrorCount > 0 Then
+		$sOverall = 'PASS WITH BLOCKED ATTEMPTS'
+	EndIf
+
+	Local $sReport = 'X-LAUNCHER APPLICATION TRACE RESULTS' & @CRLF & _
+			'====================================' & @CRLF & @CRLF & _
+			'This is the short, plain-language Trace report.' & @CRLF & _
+			'OVERALL=' & $sOverall & @CRLF & _
+			'Failures=' & $iFailureCount & @CRLF & _
+			'Warnings=' & $iWarningCount & @CRLF & _
+			'Passes=' & $iPassCount & @CRLF & _
+			'System/installation changes=' & $iSystemInstallationCount & @CRLF & _
+			'Blocked write attempts=' & $iErrorCount & @CRLF & _
+			'Capture=' & $sCaptureStatus & @CRLF & _
+			'Application=' & $AppName & ' ' & $AppVer & @CRLF & _
+			'INI=' & $sIni & @CRLF & _
+			'Root=' & $sRootPath & @CRLF & @CRLF & _
+			'WHAT THE RESULTS MEAN' & @CRLF & _
+			'---------------------' & @CRLF & _
+			'FAIL=An X-Launcher configuration or runtime operation failed.' & @CRLF & _
+			'WARN=The application wrote outside current portable coverage; resolve or restore it for full stealth.' & @CRLF & _
+			'SYSTEM=Windows files/folders or installer staging changed; this is normally not portable application data, but review it if unexpected.' & @CRLF & _
+			'BLOCKED=Windows rejected a write-capable request, so no data was written and it is not counted as a warning.' & @CRLF & _
+			'PASS=The application write is inside Root or is handled by the current INI.' & @CRLF & @CRLF & _
+			'FAILURES' & @CRLF & _
+			'--------' & @CRLF & _
+			_TraceRenderSimpleLauncherFailureLines($sDebugContent, $iFailureCount) & @CRLF & _
+			'BLOCKED WRITE ATTEMPTS' & @CRLF & _
+			'----------------------' & @CRLF & _
+			'Meaning=Windows rejected these requests; no data was written. Do not add protected Windows paths to the INI.' & @CRLF & _
+			_TraceRenderSimpleBlockedLines($aErrors, $iErrorCount) & @CRLF & _
+			'SYSTEM/INSTALLATION CHANGES' & @CRLF & _
+			'---------------------------' & @CRLF & _
+			'Meaning=These are normally Windows file/folder changes or installer staging. Review unexpected activity in the advanced report.' & @CRLF & _
+			_TraceRenderSimpleSystemChangeLines($aRecords, $iRecordCount) & @CRLF & _
+			'WARNINGS' & @CRLF & _
+			'--------' & @CRLF
+	If $TraceProcMonCapturePartial Then
+		$sReport &= '[WARN] The Process Monitor capture was partial, so later activity may be missing.' & @CRLF
+	EndIf
+	$sReport &= _TraceRenderSimpleRecordLines('UNMANAGED', $aRecords, $iRecordCount) & _
+			@CRLF & 'PASSES' & @CRLF & _
+			'------' & @CRLF & _
+			_TraceRenderSimpleRecordLines('PASS', $aRecords, $iRecordCount) & _
+			@CRLF & 'NEXT STEP' & @CRLF & _
+			'---------' & @CRLF
+	If $iFailureCount > 0 Then
+		$sReport &= 'Review each FAIL first; its section and key identify the related INI operation where available.' & @CRLF
+	ElseIf $iUnmanaged > 0 Then
+		$sReport &= 'Review each WARN; make the target portable or restore its original host state for full stealth.' & @CRLF
+	ElseIf $TraceProcMonCapturePartial Then
+		$sReport &= 'Repeat the Trace with a complete capture before treating the result as conclusive.' & @CRLF
+	ElseIf $iSystemInstallationCount > 0 Then
+		$sReport &= 'Review SYSTEM entries only if the operating-system or installation activity was unexpected.' & @CRLF
+	ElseIf $iErrorCount > 0 Then
+		$sReport &= 'No INI change is required for blocked attempts unless the application malfunctioned.' & @CRLF
+	Else
+		$sReport &= 'No captured application write target requires attention.' & @CRLF
+	EndIf
+	$sReport &= @CRLF & 'Advanced report=' & $sAdvancedReportPath & @CRLF & _
+			'Privacy=This report can contain usernames, paths, process names and registry data. Review it before sharing.' & @CRLF
+	Return _TraceWriteUTF8File($sPath, $sReport)
+EndFunc   ;==>_TraceWriteSimplePortabilityReport
+
+Func _TraceWriteSimplePortabilityUnavailableReport($sPath, $sReason, _
+		$sAdvancedReportPath, $sTraceSummaryPath, $sDebugContent = '', _
+		$iFailureCount = 0)
+	If $sPath = '' Then Return False
+	Local $sOverall = 'NOT AVAILABLE'
+	If $iFailureCount > 0 Then $sOverall = 'FAIL'
+	Local $sReport = 'X-LAUNCHER APPLICATION TRACE RESULTS' & @CRLF & _
+			'====================================' & @CRLF & @CRLF & _
+			'This is the short, plain-language Trace report.' & @CRLF & _
+			'OVERALL=' & $sOverall & @CRLF & _
+			'Failures=' & $iFailureCount & @CRLF & _
+			'Warnings=1' & @CRLF & _
+			'Passes=0' & @CRLF & _
+			'Application=' & $AppName & ' ' & $AppVer & @CRLF & _
+			'INI=' & $ScriptIni & @CRLF & _
+			'Root=' & $Root & @CRLF & @CRLF & _
+			'FAILURES' & @CRLF & _
+			'--------' & @CRLF & _
+			_TraceRenderSimpleLauncherFailureLines($sDebugContent, $iFailureCount) & @CRLF & _
+			'WARNINGS' & @CRLF & _
+			'--------' & @CRLF & _
+			'[WARN] Portability analysis was not available because ' & $sReason & '.' & @CRLF & @CRLF & _
+			'PASSES' & @CRLF & _
+			'------' & @CRLF & _
+			'[NOT USED] No application write locations could be confirmed as portable.' & @CRLF & @CRLF & _
+			'NEXT STEP' & @CRLF & _
+			'---------' & @CRLF & _
+			'Run Trace with Microsoft Process Monitor available and allow its native capture to complete.' & @CRLF & @CRLF & _
+			'Advanced report=' & $sAdvancedReportPath & @CRLF & _
+			'Trace summary=' & $sTraceSummaryPath & @CRLF & _
+			'Privacy=Diagnostic files can contain usernames, paths, command lines, document names and registry data. Review them before sharing.' & @CRLF
+	Return _TraceWriteUTF8File($sPath, $sReport)
+EndFunc   ;==>_TraceWriteSimplePortabilityUnavailableReport
+
+Func _TraceRenderSimpleLauncherFailureLines($sContent, $iCount)
+	If $iCount = 0 Then Return '[NONE] No X-Launcher configuration or runtime failure was reported.' & @CRLF
+	Local $sText = '', $sNormalised = StringReplace($sContent, @CR, '')
+	Local $aLines = StringSplit($sNormalised, @LF, 1)
+	Local $i, $iMarker
+	For $i = 1 To $aLines[0]
+		$iMarker = StringInStr($aLines[$i], '[FAIL]', 1)
+		If $iMarker > 0 Then $sText &= StringMid($aLines[$i], $iMarker) & @CRLF
+	Next
+	If $sText = '' Then Return '[FAIL] X-Launcher reported a failure; see Application_Trace_Summary.log for its section and key.' & @CRLF
+	Return $sText
+EndFunc   ;==>_TraceRenderSimpleLauncherFailureLines
+
+Func _TraceRenderSimpleBlockedLines(ByRef $aRecords, $iCount)
+	If $iCount = 0 Then Return '[NONE] No blocked write-capable request was observed.' & @CRLF
+	Local $sText = '', $i
+	Local $sDriverStoreRoot = @WindowsDir & '\System32\DriverStore\FileRepository'
+	Local $iDriverStoreTargets = 0
+	Local $sDriverStoreActions = '', $sDriverStoreProcesses = ''
+	For $i = 0 To $iCount - 1
+		If StringUpper($aRecords[$i][8]) = 'ACCESS DENIED' And _
+				_TracePathWithin($aRecords[$i][2], $sDriverStoreRoot) Then
+			$iDriverStoreTargets += 1
+			$sDriverStoreActions = _TraceListMergeUnique($sDriverStoreActions, _
+					$aRecords[$i][4])
+			$sDriverStoreProcesses = _TraceListMergeUnique($sDriverStoreProcesses, _
+					$aRecords[$i][5])
+			ContinueLoop
+		EndIf
+		$sText &= '[BLOCKED] Result=' & $aRecords[$i][8] & ' | Action=' & _
+				$aRecords[$i][4] & ' | Process=' & $aRecords[$i][5] & ' | Target=' & _
+				_TraceSimpleTargetDescription($aRecords[$i][1], $aRecords[$i][2]) & @CRLF
+	Next
+	If $iDriverStoreTargets > 0 Then
+		$sText = '[BLOCKED] Result=ACCESS DENIED | Action=' & $sDriverStoreActions & _
+				' | Process=' & $sDriverStoreProcesses & ' | Targets=' & _
+				$iDriverStoreTargets & ' | Location=' & $sDriverStoreRoot & _
+				' | No data was written.' & @CRLF & $sText
+	EndIf
+	Return $sText
+EndFunc   ;==>_TraceRenderSimpleBlockedLines
+
+Func _TraceRenderSimpleSystemChangeLines(ByRef $aRecords, $iCount)
+	Local $sText = '', $i, $j
+	Local $iSystemFiles = 0
+	Local $sSystemFileProcesses = ''
+	Local $aInstall[16][3], $iInstallCount = 0, $iMatch
+	For $i = 0 To $iCount - 1
+		Switch $aRecords[$i][3]
+			Case 'SYSTEM CHANGE'
+				$iSystemFiles += 1
+				$sSystemFileProcesses = _TraceListMergeUnique( _
+						$sSystemFileProcesses, $aRecords[$i][5])
+			Case 'INSTALLATION ACTIVITY'
+				$iMatch = -1
+				For $j = 0 To $iInstallCount - 1
+					If StringLower($aInstall[$j][0]) = StringLower($aRecords[$i][8]) Then
+						$iMatch = $j
+						ExitLoop
+					EndIf
+				Next
+				If $iMatch < 0 Then
+					If $iInstallCount >= UBound($aInstall) Then _
+							ReDim $aInstall[UBound($aInstall) + 16][3]
+					$iMatch = $iInstallCount
+					$aInstall[$iMatch][0] = $aRecords[$i][8]
+					$iInstallCount += 1
+				EndIf
+				$aInstall[$iMatch][1] = Number($aInstall[$iMatch][1]) + 1
+				$aInstall[$iMatch][2] = _TraceListMergeUnique( _
+						$aInstall[$iMatch][2], $aRecords[$i][5])
+		EndSwitch
+	Next
+	If $iSystemFiles > 0 Then
+		$sText &= '[SYSTEM] Windows files/folders changed | Targets=' & $iSystemFiles & _
+				' | Processes=' & $sSystemFileProcesses & _
+				' | Review only if unexpected.' & @CRLF
+	EndIf
+	For $i = 0 To $iInstallCount - 1
+		$sText &= '[INSTALLATION] Package staging folder=' & $aInstall[$i][0] & _
+				' | Targets=' & $aInstall[$i][1] & ' | Processes=' & _
+				$aInstall[$i][2] & ' | Review only if unexpected or left behind.' & @CRLF
+	Next
+	If $sText = '' Then Return '[NONE] No Windows system change or installer staging target was observed.' & @CRLF
+	Return $sText
+EndFunc   ;==>_TraceRenderSimpleSystemChangeLines
+
+Func _TraceListMergeUnique($sList, $sValues)
+	Local $aValues = StringSplit($sValues, ', ', 1)
+	Local $i
+	For $i = 1 To $aValues[0]
+		$sList = _TraceListAddUnique($sList, $aValues[$i])
+	Next
+	Return $sList
+EndFunc   ;==>_TraceListMergeUnique
+
+Func _TraceRenderSimpleRecordLines($sMode, ByRef $aRecords, $iCount)
+	Local $sText = '', $i, $sClass
+	For $i = 0 To $iCount - 1
+		$sClass = $aRecords[$i][3]
+		If $sMode = 'UNMANAGED' And $sClass = 'UNMANAGED' Then
+			$sText &= '[WARN] ' & $aRecords[$i][5] & ' wrote to ' & _
+					_TraceSimpleTargetDescription($aRecords[$i][1], $aRecords[$i][2]) & _
+					', but the current INI does not make this location portable.' & @CRLF
+		ElseIf $sMode = 'PASS' And ($sClass = 'MANAGED' Or $sClass = 'CONTAINED') Then
+			$sText &= '[PASS] Process=' & $aRecords[$i][5] & ' | Target=' & _
+					_TraceSimpleTargetDescription($aRecords[$i][1], $aRecords[$i][2]) & _
+					' | INI=' & _TraceSimpleINILabel($aRecords[$i][8]) & @CRLF
+		EndIf
+	Next
+	If $sText <> '' Then Return $sText
+	If $sMode = 'UNMANAGED' Then Return '[NONE] No unmanaged application write targets were observed.' & @CRLF
+	Return '[NONE] No application write target was confirmed as portable.' & @CRLF
+EndFunc   ;==>_TraceRenderSimpleRecordLines
+
+Func _TraceSimpleINILabel($sCoverage)
+	; The advanced report retains the resolved REG filename as evidence. The
+	; plain-language report only needs the INI section and key.
+	Local $iRegedit = StringInStr($sCoverage, '] Regedit=', 1)
+	If $iRegedit > 0 Then _
+			Return StringLeft($sCoverage, $iRegedit + StringLen('] Regedit') - 1)
+	Local $iResolvedPath = StringInStr($sCoverage, ' (', 0, -1)
+	If $iResolvedPath > 0 And StringRight($sCoverage, 1) = ')' Then _
+			Return StringLeft($sCoverage, $iResolvedPath - 1)
+	If $sCoverage = '' Then Return '[FileSystem] Root'
+	Return $sCoverage
+EndFunc   ;==>_TraceSimpleINILabel
+
+Func _TraceSimpleTargetDescription($sType, $sPath)
+	Switch $sType
+		Case 'FILE'
+			Return 'file ' & $sPath
+		Case 'DIRECTORY'
+			Return 'folder ' & $sPath
+		Case 'REGISTRY'
+			Return 'registry location ' & $sPath
+	EndSwitch
+	Return StringLower($sType) & ' target ' & $sPath
+EndFunc   ;==>_TraceSimpleTargetDescription
 
 Func _TraceWriteUTF8File($sPath, $sText)
 	Local $hFile = FileOpen($sPath, 2 + 128)
@@ -4623,9 +4941,12 @@ Func _TraceBuildCoverageMap($sIni, ByRef $aFileCoverage, ByRef $iFileCount, _
 			'[FileSystem] Download')
 	_TraceCoverageAddFile($aFileCoverage, $iFileCount, $UserProfile, 'PREFIX', _
 			'[FileSystem] UserProfile')
+	_TraceCoverageAddFile($aFileCoverage, $iFileCount, $Root, 'PREFIX', _
+			'[FileSystem] Root')
 
 	Local $aEnvironment = IniReadSection($sIni, 'Environment')
-	Local $i
+	Local $i, $bUserProfile = False, $bAppData = False
+	Local $bLocalAppData = False, $bTemp = False, $bTmp = False
 	If Not @error Then
 		For $i = 1 To $aEnvironment[0][0]
 			; PATH controls executable discovery; it is not a promise that files
@@ -4635,7 +4956,35 @@ Func _TraceBuildCoverageMap($sIni, ByRef $aFileCoverage, ByRef $iFileCount, _
 			Local $sEnvironmentPath = $aEnvironmentParts[1]
 			_TraceCoverageAddEnvironmentPaths($aFileCoverage, $iFileCount, _
 					$sEnvironmentPath, '[Environment] ' & $aEnvironment[$i][0])
+			Switch StringUpper($aEnvironment[$i][0])
+				Case 'USERPROFILE'
+					$bUserProfile = True
+				Case 'APPDATA'
+					$bAppData = True
+				Case 'LOCALAPPDATA'
+					$bLocalAppData = True
+				Case 'TEMP'
+					$bTemp = True
+				Case 'TMP'
+					$bTmp = True
+			EndSwitch
 		Next
+	EndIf
+
+	If StringLower(IniRead($sIni, 'Options', 'FixAppData', 'false')) = 'true' And _
+			$bUserProfile And Not $bAppData Then
+		_TraceCoverageAddFile($aFileCoverage, $iFileCount, EnvGet('APPDATA'), _
+				'PREFIX', '[Options] FixAppData=true + [Environment] USERPROFILE')
+	EndIf
+	If StringLower(IniRead($sIni, 'Options', 'FixLocalAppData', 'false')) = 'true' And _
+			Not $bLocalAppData Then
+		_TraceCoverageAddFile($aFileCoverage, $iFileCount, $Lib & '\AppData\Local', _
+				'PREFIX', '[Options] FixLocalAppData=true')
+	EndIf
+	If StringLower(IniRead($sIni, 'Options', 'FixTemp', 'false')) = 'true' And _
+			(Not $bTemp Or Not $bTmp) Then
+		_TraceCoverageAddFile($aFileCoverage, $iFileCount, _
+				$Lib & '\AppData\Local\Temp', 'PREFIX', '[Options] FixTemp=true')
 	EndIf
 
 	Local $aOperationSections[4] = ['Functions', 'FirstRunOperations', _
@@ -4754,7 +5103,12 @@ Func _TraceCoverageAddFile(ByRef $aCoverage, ByRef $iCount, $sPath, $sMode, $sSo
 	If $sCanonical = '' Then Return False
 	Local $i
 	For $i = 0 To $iCount - 1
-		If $aCoverage[$i][0] = $sCanonical And $aCoverage[$i][1] = $sMode Then Return True
+		If $aCoverage[$i][0] = $sCanonical And $aCoverage[$i][1] = $sMode Then
+			If _TraceCoverageSourcePriority($sSource) > _
+					_TraceCoverageSourcePriority($aCoverage[$i][2]) Then _
+					$aCoverage[$i][2] = $sSource
+			Return True
+		EndIf
 	Next
 	If $iCount >= UBound($aCoverage) Then ReDim $aCoverage[UBound($aCoverage) + 64][3]
 	$aCoverage[$iCount][0] = $sCanonical
@@ -4764,17 +5118,34 @@ Func _TraceCoverageAddFile(ByRef $aCoverage, ByRef $iCount, $sPath, $sMode, $sSo
 	Return True
 EndFunc   ;==>_TraceCoverageAddFile
 
+Func _TraceCoverageSourcePriority($sSource)
+	If StringInStr($sSource, 'Junctions', 1) Or _
+			StringInStr($sSource, 'SymLinks', 1) Then Return 100
+	If StringLeft($sSource, 9) = '[Options]' Then Return 90
+	If StringLeft($sSource, 1) = '[' And StringInStr($sSource, '=') Then Return 95
+	If StringLeft($sSource, 13) = '[Environment]' Then Return 80
+	If StringInStr($sSource, 'DirCreate', 1) Or _
+			StringInStr($sSource, 'DirRemove', 1) Then Return 60
+	If StringLeft($sSource, 12) = '[FileSystem]' Then Return 40
+	Return 70
+EndFunc   ;==>_TraceCoverageSourcePriority
+
 Func _TraceFileCoverageMatch($sPath, ByRef $aCoverage, $iCount, ByRef $sSource)
 	Local $sCanonical = _TraceCanonicalPath($sPath)
-	Local $i
+	Local $i, $iBest = -1, $iBestLength = -1, $bMatches
 	For $i = 0 To $iCount - 1
-		If ($aCoverage[$i][1] = 'EXACT' And $sCanonical = $aCoverage[$i][0]) Or _
-				($aCoverage[$i][1] = 'PREFIX' And _TracePathWithin($sCanonical, $aCoverage[$i][0])) Then
-			$sSource = $aCoverage[$i][2] & ' (' & $aCoverage[$i][0] & ')'
-			Return True
+		$bMatches = ($aCoverage[$i][1] = 'EXACT' And $sCanonical = $aCoverage[$i][0]) Or _
+				($aCoverage[$i][1] = 'PREFIX' And _TracePathWithin($sCanonical, $aCoverage[$i][0]))
+		If $bMatches And (StringLen($aCoverage[$i][0]) > $iBestLength Or _
+				(StringLen($aCoverage[$i][0]) = $iBestLength And _
+				$aCoverage[$i][1] = 'EXACT')) Then
+			$iBest = $i
+			$iBestLength = StringLen($aCoverage[$i][0])
 		EndIf
 	Next
-	Return False
+	If $iBest < 0 Then Return False
+	$sSource = $aCoverage[$iBest][2] & ' (' & $aCoverage[$iBest][0] & ')'
+	Return True
 EndFunc   ;==>_TraceFileCoverageMatch
 
 Func _TraceCanonicalPath($sPath)
@@ -4798,6 +5169,72 @@ Func _TracePathWithin($sCandidate, $sParent)
 	If $sChild = '' Or $sRoot = '' Then Return False
 	Return $sChild = $sRoot Or StringLeft($sChild, StringLen($sRoot) + 1) = $sRoot & '\'
 EndFunc   ;==>_TracePathWithin
+
+Func _TraceIsNTFSVolumeMetadataPath($sPath)
+	Local $sCanonical = _TraceCanonicalPath($sPath)
+	If StringLen($sCanonical) < 4 Or StringMid($sCanonical, 2, 2) <> ':\' Then Return False
+	Local $sRootName = StringMid($sCanonical, 4)
+	If StringLeft($sRootName, 1) <> '$' Then Return False
+	Local $iSlash = StringInStr($sRootName, '\')
+	Local $iStream = StringInStr($sRootName, ':')
+	Local $iBoundary = $iSlash
+	If $iBoundary = 0 Or ($iStream > 0 And $iStream < $iBoundary) Then $iBoundary = $iStream
+	If $iBoundary > 0 Then $sRootName = StringLeft($sRootName, $iBoundary - 1)
+	Switch $sRootName
+		Case '$mft', '$mftmirr', '$logfile', '$volume', '$attrdef', '$bitmap', _
+				'$boot', '$badclus', '$secure', '$upcase', '$extend'
+			Return True
+	EndSwitch
+	Return False
+EndFunc   ;==>_TraceIsNTFSVolumeMetadataPath
+
+Func _TraceIsWindowsSystemFilePath($sPath)
+	Return _TracePathWithin($sPath, @WindowsDir)
+EndFunc   ;==>_TraceIsWindowsSystemFilePath
+
+Func _TraceIsInstallerPackageFile($sPath)
+	Local $sLower = StringLower($sPath)
+	Return StringRight($sLower, 4) = '.inf' Or _
+			StringRight($sLower, 4) = '.cat' Or _
+			StringRight($sLower, 4) = '.sys' Or _
+			StringRight($sLower, 4) = '.cab' Or _
+			StringRight($sLower, 4) = '.msi' Or _
+			StringRight($sLower, 4) = '.msp'
+EndFunc   ;==>_TraceIsInstallerPackageFile
+
+Func _TraceClassifyInstallationClusters(ByRef $aRecords, $iCount)
+	Local $aRoots[16], $iRootCount = 0
+	Local $i, $j, $iPackageCount, $sBestRoot
+	For $i = 0 To $iCount - 1
+		If $aRecords[$i][3] <> 'UNMANAGED' Or $aRecords[$i][1] <> 'DIRECTORY' Then ContinueLoop
+		$iPackageCount = 0
+		For $j = 0 To $iCount - 1
+			If $aRecords[$j][3] = 'UNMANAGED' And $aRecords[$j][1] = 'FILE' And _
+					_TraceIsInstallerPackageFile($aRecords[$j][2]) And _
+					_TracePathWithin($aRecords[$j][2], $aRecords[$i][2]) Then _
+					$iPackageCount += 1
+		Next
+		If $iPackageCount < 2 Then ContinueLoop
+		If $iRootCount >= UBound($aRoots) Then ReDim $aRoots[UBound($aRoots) + 16]
+		$aRoots[$iRootCount] = $aRecords[$i][2]
+		$iRootCount += 1
+	Next
+	If $iRootCount = 0 Then Return 0
+
+	For $i = 0 To $iCount - 1
+		If $aRecords[$i][3] <> 'UNMANAGED' Or $aRecords[$i][1] = 'REGISTRY' Then ContinueLoop
+		$sBestRoot = ''
+		For $j = 0 To $iRootCount - 1
+			If _TracePathWithin($aRecords[$i][2], $aRoots[$j]) And _
+					($sBestRoot = '' Or StringLen($aRoots[$j]) < StringLen($sBestRoot)) Then _
+					$sBestRoot = $aRoots[$j]
+		Next
+		If $sBestRoot = '' Then ContinueLoop
+		$aRecords[$i][3] = 'INSTALLATION ACTIVITY'
+		$aRecords[$i][8] = $sBestRoot
+	Next
+	Return $iRootCount
+EndFunc   ;==>_TraceClassifyInstallationClusters
 
 Func _TraceCoverageAddRegedit(ByRef $aCoverage, ByRef $iCount, $sValue, $sSource)
 	Local $aGroups = StringSplit($sValue, '|')
@@ -4926,17 +5363,21 @@ EndFunc   ;==>_TraceCanonicalRegistry
 
 Func _TraceRegistryCoverageMatch($sPath, ByRef $aCoverage, $iCount, ByRef $sSource)
 	Local $sCanonical = _TraceCanonicalRegistryViewPath($sPath)
-	Local $i, $sCoverageRoot
+	Local $i, $iBest = -1, $iBestLength = -1, $sCoverageRoot
 	For $i = 0 To $iCount - 1
 		$sCoverageRoot = _TraceCanonicalRegistryViewPath($aCoverage[$i][0])
 		If $sCanonical = $sCoverageRoot Or _
 				StringLeft($sCanonical, StringLen($sCoverageRoot) + 1) = _
 				$sCoverageRoot & '\' Then
-			$sSource = $aCoverage[$i][1] & ' (' & $aCoverage[$i][0] & ')'
-			Return True
+			If StringLen($sCoverageRoot) > $iBestLength Then
+				$iBest = $i
+				$iBestLength = StringLen($sCoverageRoot)
+			EndIf
 		EndIf
 	Next
-	Return False
+	If $iBest < 0 Then Return False
+	$sSource = $aCoverage[$iBest][1] & ' (' & $aCoverage[$iBest][0] & ')'
+	Return True
 EndFunc   ;==>_TraceRegistryCoverageMatch
 
 Func _TraceCanonicalRegistryViewPath($sPath)
@@ -5082,6 +5523,12 @@ Func _TraceRenderRecordSection($sTitle, $sClass, ByRef $aRecords, $iCount)
 		$iMatches += 1
 		If $sClass = 'RELEVANT ERROR' Then
 			$sState = 'FAILED OPERATION'
+		ElseIf $sClass = 'SYSTEM METADATA' Then
+			$sState = 'WINDOWS-MANAGED METADATA'
+		ElseIf $sClass = 'SYSTEM CHANGE' Then
+			$sState = 'OPERATING-SYSTEM CHANGE'
+		ElseIf $sClass = 'INSTALLATION ACTIVITY' Then
+			$sState = 'INSTALLER STAGING ACTIVITY'
 		Else
 			$sState = _TraceRecordState($aRecords[$i][1], $aRecords[$i][2], _
 					$aRecords[$i][7])
@@ -5094,6 +5541,13 @@ Func _TraceRenderRecordSection($sTitle, $sClass, ByRef $aRecords, $iCount)
 				'Path= ' & $aRecords[$i][2] & @CRLF
 		If $sClass = 'RELEVANT ERROR' Then
 			$sText &= 'Result= ' & $aRecords[$i][8] & @CRLF
+		ElseIf $sClass = 'SYSTEM METADATA' Then
+			$sText &= 'Classification= ' & $aRecords[$i][8] & @CRLF
+		ElseIf $sClass = 'SYSTEM CHANGE' Then
+			$sText &= 'Classification= ' & $aRecords[$i][8] & @CRLF
+		ElseIf $sClass = 'INSTALLATION ACTIVITY' Then
+			$sText &= 'Classification= Installer or driver-package staging cluster' & @CRLF & _
+					'Staging Root= ' & $aRecords[$i][8] & @CRLF
 		Else
 			$sText &= 'INIcoverage= ' & $aRecords[$i][8] & @CRLF
 		EndIf
@@ -5413,7 +5867,8 @@ Func _TraceFinalize($bInteractive = False)
 			'Windows=' & @OSVersion & ' ' & @OSServicePack & ' (build ' & @OSBuild & _
 			'; ' & @OSArch & ')' & @CRLF & _
 			'Process Monitor=' & $TraceProcMonState & @CRLF & _
-			'Readable portability report=' & $TracePortabilityReportPath & _
+			'Plain-language Trace results=' & $TraceResultsPath & @CRLF & _
+			'Advanced portability report=' & $TracePortabilityReportPath & _
 					' (state=' & $TracePortabilityState & ')' & @CRLF & _
 			$sSafeguardLine & @CRLF & _
 			$sCaptureLine & @CRLF & _
@@ -5501,7 +5956,9 @@ Func _TraceFinalize($bInteractive = False)
 				FileExists($TracePortabilityReportPath) Then
 			$sOpenReport = $TracePortabilityReportPath
 		EndIf
-		$sComplete &= @CRLF & 'Portability report=' & $TracePortabilityReportPath
+		If FileExists($TraceResultsPath) Then $sOpenReport = $TraceResultsPath
+		$sComplete &= @CRLF & 'Trace results=' & $TraceResultsPath
+		$sComplete &= @CRLF & 'Advanced portability report=' & $TracePortabilityReportPath
 		$sComplete &= @CRLF & 'Trace summary=' & $TraceSummaryPath
 		$sComplete &= @CRLF & @CRLF & 'Opened report=' & $sOpenReport
 		MsgBox(64, $ScriptName, $sComplete)

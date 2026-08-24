@@ -35,4 +35,29 @@ X-Launcher64 v2.0.0.346 - Changes since v1.5.7.20
 - Refined visible portability-report keys to Application Root PID, Launcher Root PID,
   ParentPID, CommandLine and INIcoverage while retaining Process Monitor's original
   internal `Parent PID` and `Command line` detail-field names for compatibility.
-- Manual completely reworked.
+- Added Application_Trace_Results.log as a short, plain-language Trace report with
+  separate Failures, Warnings and Passes sections and one-line explanations for each
+  captured application target. Trace now opens this report first while retaining the
+  detailed Application_Portability_Report.log and Application_Trace_Summary.log.
+- Corrected the plain-language Trace report so Windows-blocked write-capable requests
+  are short WARN entries rather than portability FAIL entries. Their operation, result,
+  process and target are shown; FAIL is reserved for X-Launcher configuration or
+  runtime failures, including the related INI section and key when available.
+- Changed plain-language Trace PASS entries to show the most specific matching INI
+  setting, including automatic Options, Environment paths, Junctions and general
+  FileSystem roots. Removed the launcher-action target count from the simple report;
+  launcher-only activity remains available in the advanced report.
+- Separated blocked write attempts from the plain-language Trace warning count and
+  labelled them BLOCKED instead of WARN. Repetitive access-denied targets in the
+  Windows DriverStore are condensed into one summary while the advanced report
+  retains every individual target.
+- Excluded Windows-managed NTFS volume metadata such as C:\$LogFile from the
+  plain-language Trace portability warnings while retaining it in a dedicated
+  advanced-report section for diagnostic evidence.
+- Added generic Trace classifications for Windows-owned system changes and
+  clustered installer or driver-package staging. The simple report condenses
+  these separately from portability warnings, while the advanced report retains
+  every individual target. No application or process names are hardcoded.
+- Kept every unmanaged registry write in Trace WARNINGS. Generic SYSTEM
+  classification now applies only to Windows-owned files/folders and installer
+  staging, so registry activity is never hidden solely because of its path.

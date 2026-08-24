@@ -17,6 +17,7 @@ Global $TraceStartTime = '2026-08-11 10:00:00.000'
 Global $TraceProcMonPath = '', $TraceProcMonState = 'not available; continued with X-Launcher-only logging'
 Global $TraceProcMonCapturePath = $TraceSessionDir & '\Application_Trace.pml', $TraceProcMonPID = 0
 Global $TraceProcMonCSVPath = $TraceSessionDir & '\Application_Trace.csv'
+Global $TraceResultsPath = $TraceSessionDir & '\Application_Trace_Results.log'
 Global $TracePortabilityReportPath = $TraceSessionDir & '\Application_Portability_Report.log'
 Global $TracePortabilityState = 'not attempted'
 Global $TraceProcMonCaptureActive = False, $TraceProcMonCaptureSaved = False
@@ -27,7 +28,7 @@ Global $TraceProcMonCapturePartial = False, $TraceProcMonPartialReason = ''
 Global $TraceProcMonLimitStopAttempted = False, $TraceProcMonSpaceCheckWarned = False
 Global $TraceApplicationPID = 1234, $TraceApplicationExitCode = 0
 Global $TraceObservedPIDs = '|2345|'
-Global $TraceObservedProcesses = 'PID= 2345; Parent PID= 1234; Name= child.exe; Command line= child.exe --fixture' & @CRLF
+Global $TraceObservedProcesses = 'PID= 2345; ParentPID= 1234; Name= child.exe; CommandLine= child.exe --fixture' & @CRLF
 Global $TraceProcessObservation = 'available'
 Global $TraceWMI = 0, $TraceCOMErrorObject = 0, $TraceCOMError = False
 Global $Debug = 'true', $DebugFile = $TraceSessionDir & '\X-Launcher_Debug.dbg'
@@ -65,6 +66,7 @@ If Not $bFileCategory Then $bAllPass = False
 
 Local $bReportCreated = _TraceFinalize(False)
 Local $sReport = FileRead($TraceSummaryPath)
+Local $sSimpleUnavailable = FileRead($TraceResultsPath)
 Local $bReportContract = ($bReportCreated And _
 		StringInStr($sReport, 'X-LAUNCHER APPLICATION TRACE', 1) > 0 And _
 		StringInStr($sReport, 'Mode=X-Launcher-only Application Trace (Process Monitor was not started)', 1) > 0 And _
@@ -84,13 +86,18 @@ Local $bReportContract = ($bReportCreated And _
 		StringInStr($sReport, 'WARN=1', 1) > 0 And _
 		StringInStr($sReport, 'OVERALL=PASS WITH WARNINGS', 1) > 0 And _
 		StringInStr($sReport, 'Privacy=Review usernames, paths, command lines and document names before sharing.', 1) > 0 And _
-		StringInStr($sReport, 'ORDERED DIAGNOSTIC DETAIL', 1) > 0)
+		StringInStr($sReport, 'ORDERED DIAGNOSTIC DETAIL', 1) > 0 And _
+		StringInStr($sSimpleUnavailable, 'X-LAUNCHER APPLICATION TRACE RESULTS', 1) > 0 And _
+		StringInStr($sSimpleUnavailable, 'OVERALL=NOT AVAILABLE', 1) > 0 And _
+		StringInStr($sSimpleUnavailable, 'FAILURES', 1) > 0 And _
+		StringInStr($sSimpleUnavailable, 'WARNINGS', 1) > 0 And _
+		StringInStr($sSimpleUnavailable, 'PASSES', 1) > 0)
 _T48WriteResult($sLog, 'Trace summary contains required metadata categories totals privacy and ordered detail', $bReportContract)
 If Not $bReportContract Then $bAllPass = False
 
 Local $bProcessContract = (StringInStr($sReport, 'Launcher PID=', 1) > 0 And _
 		StringInStr($sReport, 'Application launch PID=1234', 1) > 0 And _
-		StringInStr($sReport, 'PID= 2345; Parent PID= 1234; Name= child.exe', 1) > 0 And _
+		StringInStr($sReport, 'PID= 2345; ParentPID= 1234; Name= child.exe', 1) > 0 And _
 		StringInStr($sReport, 'Application exit code=0', 1) > 0)
 _T48WriteResult($sLog, 'Trace summary records launcher application and observed child process details', $bProcessContract)
 If Not $bProcessContract Then $bAllPass = False
@@ -194,8 +201,10 @@ Local $bPortabilityAutoOpen = ($sFinalizeSource <> '' And _
 		StringInStr($sFinalizeSource, 'Local $sOpenReport = $TraceSummaryPath', 1) > 0 And _
 		StringInStr($sFinalizeSource, "StringLeft($TracePortabilityState, 9) = 'complete;'", 1) > 0 And _
 		StringInStr($sFinalizeSource, '$sOpenReport = $TracePortabilityReportPath', 1) > 0 And _
+		StringInStr($sFinalizeSource, 'FileExists($TraceResultsPath)', 1) > 0 And _
+		StringInStr($sFinalizeSource, '$sOpenReport = $TraceResultsPath', 1) > 0 And _
 		StringInStr($sFinalizeSource, 'ShellExecute($sOpenReport)', 1) > 0)
-_T48WriteResult($sLog, 'Completed portability analysis opens its report with Trace Summary fallback', $bPortabilityAutoOpen)
+_T48WriteResult($sLog, 'Plain-language Trace results open first with advanced report and Trace Summary fallbacks', $bPortabilityAutoOpen)
 If Not $bPortabilityAutoOpen Then $bAllPass = False
 
 Local $iStopInFinalize = StringInStr($sFinalizeSource, '_TraceStopProcMonCapture()', 1)

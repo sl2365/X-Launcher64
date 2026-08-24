@@ -3660,7 +3660,7 @@ findstr /x /c:"Trace records application PID while retaining waited completion=P
 if not errorlevel 1 set "T48_PIDWAIT=PASS"
 findstr /x /c:"Internal diagnostic switches are not forwarded to the configured payload=PASS" "Working\Test48\Helper.log" >nul 2>&1
 if not errorlevel 1 set "T48_ARGS=PASS"
-findstr /x /c:"Completed portability analysis opens its report with Trace Summary fallback=PASS" "Working\Test48\Helper.log" >nul 2>&1
+findstr /x /c:"Plain-language Trace results open first with advanced report and Trace Summary fallbacks=PASS" "Working\Test48\Helper.log" >nul 2>&1
 if not errorlevel 1 set "T48_AUTO_OPEN=PASS"
 
 set "T48=FAIL"
@@ -3694,6 +3694,11 @@ if exist "!T48B_AUTOIT!" (
 if exist "!T48B_PROBE!" del /q "!T48B_PROBE!" >nul 2>&1
 
 set "T48B_CREATED=FAIL"
+set "T48B_SIMPLE=FAIL"
+set "T48B_SIMPLE_INI=FAIL"
+set "T48B_BLOCKED_GROUP=FAIL"
+set "T48B_NTFS_METADATA=FAIL"
+set "T48B_SYSTEM_INSTALL=FAIL"
 set "T48B_XML=FAIL"
 set "T48B_FILTER=FAIL"
 set "T48B_FASTCSV=FAIL"
@@ -3717,6 +3722,16 @@ findstr /x /c:"Direct REG parser extracts the portable top-level registry root=P
 if not errorlevel 1 set "T48B_REGPARSER=PASS"
 findstr /x /c:"Readable portability report is created from exported Process Monitor CSV=PASS" "Working\Test48B\Helper.log" >nul 2>&1
 if not errorlevel 1 set "T48B_CREATED=PASS"
+findstr /x /c:"Plain-language Trace results separate launcher failures blocked warnings and portability passes=PASS" "Working\Test48B\Helper.log" >nul 2>&1
+if not errorlevel 1 set "T48B_SIMPLE=PASS"
+findstr /x /c:"Plain-language Trace passes identify matching INI settings and omit launcher-only counts=PASS" "Working\Test48B\Helper.log" >nul 2>&1
+if not errorlevel 1 set "T48B_SIMPLE_INI=PASS"
+findstr /x /c:"Plain-language Trace separates blocked counts and groups DriverStore targets=PASS" "Working\Test48B\Helper.log" >nul 2>&1
+if not errorlevel 1 set "T48B_BLOCKED_GROUP=PASS"
+findstr /x /c:"Plain-language Trace excludes NTFS metadata from portability warnings=PASS" "Working\Test48B\Helper.log" >nul 2>&1
+if not errorlevel 1 set "T48B_NTFS_METADATA=PASS"
+findstr /x /c:"Plain-language Trace separates Windows files and installation changes without hiding registry warnings=PASS" "Working\Test48B\Helper.log" >nul 2>&1
+if not errorlevel 1 set "T48B_SYSTEM_INSTALL=PASS"
 findstr /x /c:"Repeated low-level file events collapse into unique target counts=PASS" "Working\Test48B\Helper.log" >nul 2>&1
 if not errorlevel 1 set "T48B_COLLAPSE=PASS"
 findstr /x /c:"Application child PID activity is attributed and unrelated PID activity is excluded=PASS" "Working\Test48B\Helper.log" >nul 2>&1
@@ -3731,7 +3746,7 @@ findstr /x /c:"Portability report uses equals separators for readable key-value 
 if not errorlevel 1 set "T48B_FORMAT=PASS"
 
 set "T48B=FAIL"
-if "!T48B_XML!"=="PASS" if "!T48B_FILTER!"=="PASS" if "!T48B_FASTCSV!"=="PASS" if "!T48B_INDEXED!"=="PASS" if "!T48B_REGPARSER!"=="PASS" if "!T48B_CREATED!"=="PASS" if "!T48B_COLLAPSE!"=="PASS" if "!T48B_ATTRIBUTION!"=="PASS" if "!T48B_MANAGED!"=="PASS" if "!T48B_UNMANAGED!"=="PASS" if "!T48B_DISCLOSURE!"=="PASS" if "!T48B_FORMAT!"=="PASS" if "!T48B_HELPER_EXIT!"=="0" set "T48B=PASS"
+if "!T48B_XML!"=="PASS" if "!T48B_FILTER!"=="PASS" if "!T48B_FASTCSV!"=="PASS" if "!T48B_INDEXED!"=="PASS" if "!T48B_REGPARSER!"=="PASS" if "!T48B_CREATED!"=="PASS" if "!T48B_SIMPLE!"=="PASS" if "!T48B_SIMPLE_INI!"=="PASS" if "!T48B_BLOCKED_GROUP!"=="PASS" if "!T48B_NTFS_METADATA!"=="PASS" if "!T48B_SYSTEM_INSTALL!"=="PASS" if "!T48B_COLLAPSE!"=="PASS" if "!T48B_ATTRIBUTION!"=="PASS" if "!T48B_MANAGED!"=="PASS" if "!T48B_UNMANAGED!"=="PASS" if "!T48B_DISCLOSURE!"=="PASS" if "!T48B_FORMAT!"=="PASS" if "!T48B_HELPER_EXIT!"=="0" set "T48B=PASS"
 
 if "!T48B!"=="PASS" (
     set /a PASSCOUNT+=1
@@ -5362,9 +5377,14 @@ echo ============================================================
 >>"%RESULTS%" echo Test 48 unique diagnostics session folder=                       !T48_UNIQUE!
 >>"%RESULTS%" echo Test 48 PID recording with waited completion=                    !T48_PIDWAIT!
 >>"%RESULTS%" echo Test 48 internal diagnostic arguments withheld=                  !T48_ARGS!
->>"%RESULTS%" echo Test 48 completed portability report auto-open and fallback=      !T48_AUTO_OPEN!
+>>"%RESULTS%" echo Test 48 plain-language results auto-open and report fallbacks=     !T48_AUTO_OPEN!
 >>"%RESULTS%" echo Test 48 helper probe exit code=                                  !T48_HELPER_EXIT!
 >>"%RESULTS%" echo Test 48B readable portability report created=                     !T48B_CREATED!
+>>"%RESULTS%" echo Test 48B launcher failures blocked warnings and portability passes= !T48B_SIMPLE!
+>>"%RESULTS%" echo Test 48B pass lines identify matching INI settings=               !T48B_SIMPLE_INI!
+>>"%RESULTS%" echo Test 48B blocked counts and DriverStore grouping=                  !T48B_BLOCKED_GROUP!
+>>"%RESULTS%" echo Test 48B NTFS metadata excluded from portability warnings=         !T48B_NTFS_METADATA!
+>>"%RESULTS%" echo Test 48B system/install grouping preserves registry warnings=       !T48B_SYSTEM_INSTALL!
 >>"%RESULTS%" echo Test 48B ProcMon XML process-index/PID mapping=                   !T48B_XML!
 >>"%RESULTS%" echo Test 48B automatic write-focused destructive ProcMon filter=       !T48B_FILTER!
 >>"%RESULTS%" echo Test 48B fast canonical CSV parsing=                              !T48B_FASTCSV!

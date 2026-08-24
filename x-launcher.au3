@@ -6,15 +6,13 @@
 ;
 ; ------------------------------------------------------------------------------
 ;
-; AutoIt Version:			3.3.18.0
+; AutoIt Version:			3.2.12.1
 ; Platform:					Windows
 ; Script Name:				X-Launcher
 ; Script Function:			Runs every application from a removable drive
-; Script Version:			2.0.0.346
-; Author:					sl23
-; Homepage:					https://github.com/sl2365/X-Launcher64
-; Original Author:			Gabriele Tittonel <tittoproject@gmail.com>
-; Original Home Page:		http://x-launcher.sourceforge.net/
+; Script Version:			1.5.4.0
+; Author:					Gabriele Tittonel <tittoproject@gmail.com>
+; Home Page:				http://x-launcher.sourceforge.net/
 ; License:					GNU General Public License
 ; Contributors:				winPenPack Team and winPenPack community
 ;							(http://www.winpenpack.com)
@@ -67,7 +65,7 @@ Global $TraceSessionDir = '', $TraceSummaryPath = '', $TraceSettingsPath = ''
 Global $TraceStartTime = '', $TraceProcMonPath = '', $TraceProcMonState = ''
 Global $TraceProcMonCapturePath = '', $TraceProcMonPID = 0
 Global $TraceProcMonCSVPath = '', $TraceProcMonXMLPath = '', $TraceProcMonConfigPath = ''
-Global $TracePortabilityReportPath = '', $TracePortabilityState = ''
+Global $TraceResultsPath = '', $TracePortabilityReportPath = '', $TracePortabilityState = ''
 Global $TraceProcMonCaptureActive = False, $TraceProcMonCaptureSaved = False
 Global $TraceProcMonMaxMB = 512, $TraceProcMonReserveMB = 1024
 Global $TraceProcMonCaptureBytes = 0, $TraceProcMonCaptureTimer = 0

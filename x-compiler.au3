@@ -16,7 +16,7 @@
 #AutoIt3Wrapper_Res_Description=X-Launcher - The Universal Launcher!
 #AutoIt3Wrapper_Res_Fileversion_First_Increment=Y	; AutoIncrement: Before (Y); After (N) compile. Default=N
 #AutoIt3Wrapper_Res_FileVersion_AutoIncrement=Y
-#AutoIt3Wrapper_Res_Fileversion=2.0.0.346
+#AutoIt3Wrapper_Res_Fileversion=2.0.0.353
 #AutoIt3Wrapper_Res_ProductName=winPenPack X-Launcher_x64
 #AutoIt3Wrapper_Res_ProductVersion=ISN Studio v1.16 / AutoIT v3.3.18.0
 #AutoIt3Wrapper_Res_LegalCopyright=GNU General Public License
